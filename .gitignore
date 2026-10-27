@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.db
+
+# Node
+node_modules/
+dist/
+
+# Env
+.env
+.env.*
+!.env.example
+
+.DS_Store
+
+# Hackathon notes (local only)
+/hackathon/
