@@ -1,0 +1,90 @@
+import json
+import time
+
+import pytest
+from fakes import ScriptedClient
+from fastapi.testclient import TestClient
+
+from gridxray.api.main import app
+from gridxray.lab import Complexity, generate_scenario
+from gridxray.runs import manager
+
+
+def wait_done(client, run_id: str, timeout: float = 60.0) -> dict:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        body = client.get(f"/investigations/{run_id}").json()
+        if body["status"] != "running":
+            return body
+        time.sleep(0.1)
+    return body
+
+
+@pytest.fixture
+def client(monkeypatch):
+    # the scripted model plays Spark/Wonder; it plans moves for the same scenario the run builds
+    monkeypatch.setattr(manager, "client_factory", lambda: ScriptedClient(generate_scenario(Complexity.EASY, 1)))
+    with TestClient(app) as c:
+        c.post("/auth/demo")
+        yield c
+        # let background investigations finish so tests never compete for the concurrency limit
+        deadline = time.monotonic() + 60
+        while manager.running_count() and time.monotonic() < deadline:
+            time.sleep(0.1)
+
+
+def test_requires_login():
+    with TestClient(app) as c:
+        assert c.post("/investigations", json={}).status_code == 401
+
+
+def test_run_streams_events_and_scores(client):
+    r = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5})
+    assert r.status_code == 201
+    run_id = r.json()["id"]
+    body = wait_done(client, run_id)
+    assert body["status"] == "done"
+    kinds = [e["kind"] for e in body["events"]]
+    assert kinds[0] == "started" and kinds[-1] == "done"
+    assert {"candidate", "experiment", "review", "result"} <= set(kinds)
+    assert body["score"]["gridxray"]["f1"] > 0 and len(body["score"]["baselines"]) == 4
+
+    with client.stream("GET", f"/investigations/{run_id}/events") as s:  # finished runs replay from the DB copy
+        text = "".join(s.iter_text())
+    events = [json.loads(line[5:]) for line in text.splitlines() if line.startswith("data:")]
+    assert events[-1]["kind"] == "done"
+
+
+def test_list_usage_and_resume_flow(client):
+    run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5}).json()["id"]
+    wait_done(client, run_id)
+    runs = client.get("/investigations").json()
+    assert runs[0]["id"] == run_id and runs[0]["status"] == "done"
+    usage = client.get("/investigations/usage").json()
+    assert "muse-spark-1.3" in usage["prices"] and usage["runs"] >= 1
+    assert client.post(f"/investigations/{run_id}/resume").status_code == 409  # finished runs are not resumed
+
+
+def test_demo_sessions_do_not_see_each_others_runs(client):
+    run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5}).json()["id"]
+    with TestClient(app) as other:
+        other.post("/auth/demo")
+        assert other.get(f"/investigations/{run_id}").status_code == 404
+        assert all(r["id"] != run_id for r in other.get("/investigations").json())
+
+
+def test_runs_survive_sign_out_in_the_same_browser(client):
+    run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5}).json()["id"]
+    client.post("/auth/logout")
+    client.post("/auth/demo")  # same browser: the device cookie is kept
+    assert any(r["id"] == run_id for r in client.get("/investigations").json())
+
+
+def test_report_and_evidence(client):
+    run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5, "language": "es"}).json()["id"]
+    wait_done(client, run_id)
+    html = client.get(f"/investigations/{run_id}/report").text
+    assert "Informe de investigación GridXray" in html and "Resultado verificado" in html
+    assert "Mismo presupuesto, sin IA" in html  # every baseline is in the report
+    ev = client.get("/evidence").json()
+    assert len(ev["guarantees"]) >= 5 and "metric" in ev["scoring"]

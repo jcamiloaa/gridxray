@@ -1,37 +1,49 @@
-import { useState } from 'react'
-import { createScenario, type Complexity, type ObservableScenario } from './api/client'
-import { GridView } from './components/GridView'
+import { useEffect, useState } from 'react'
+import { auth, type User } from './api/client'
+import { AuthDialog } from './components/AuthDialog'
+import { LanguageProvider } from './i18n'
+import { Landing } from './pages/Landing'
+import { Workspace } from './pages/Workspace'
+
+type View = 'landing' | 'workspace'
+
+const viewFromPath = (): View => (window.location.pathname.startsWith('/app') ? 'workspace' : 'landing')
 
 export default function App() {
-  const [complexity, setComplexity] = useState<Complexity>('easy')
-  const [seed, setSeed] = useState(0)
-  const [scenario, setScenario] = useState<ObservableScenario | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null | undefined>(undefined) // undefined = checking session
+  const [view, setView] = useState<View>(viewFromPath)
+  const [signingIn, setSigningIn] = useState(false)
 
-  async function generate() {
-    setError(null)
-    try {
-      setScenario(await createScenario(complexity, seed))
-    } catch (e) {
-      setError(String(e))
-    }
+  useEffect(() => { auth.me().then(setUser, () => setUser(null)) }, [])
+  useEffect(() => {
+    const onPop = () => setView(viewFromPath())
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+
+  const go = (v: View) => {
+    window.history.pushState(null, '', v === 'workspace' ? '/app' : '/')
+    setView(v)
+    window.scrollTo(0, 0)
+  }
+
+  if (user === undefined) return null
+
+  const signedIn = (u: User) => {
+    setUser(u)
+    setSigningIn(false)
+    go('workspace')
   }
 
   return (
-    <main style={{ padding: 16, maxWidth: 1200, margin: '0 auto' }}>
-      <h1>GridXray</h1>
-      <p>Physical AI for Utilities: discover hidden grid topology through virtual experiments.</p>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-        <select value={complexity} onChange={(e) => setComplexity(e.target.value as Complexity)}>
-          <option value="easy">easy</option>
-          <option value="medium">medium</option>
-          <option value="hard">hard</option>
-        </select>
-        <input type="number" value={seed} onChange={(e) => setSeed(Number(e.target.value))} style={{ width: 80 }} />
-        <button onClick={generate}>Generate grid</button>
-      </div>
-      {error && <p style={{ color: 'crimson' }}>{error}</p>}
-      {scenario && <GridView scenario={scenario} />}
-    </main>
+    <>
+      {view === 'workspace' && user ? (
+        <LanguageProvider><Workspace user={user} onHome={() => go('landing')}
+          onSignOut={() => auth.logout().finally(() => { setUser(null); go('landing') })} /></LanguageProvider>
+      ) : (
+        <Landing user={user} onOpenWorkspace={() => go('workspace')} onSignIn={() => setSigningIn(true)} />
+      )}
+      {signingIn && <AuthDialog onSignedIn={signedIn} onClose={() => setSigningIn(false)} />}
+    </>
   )
 }

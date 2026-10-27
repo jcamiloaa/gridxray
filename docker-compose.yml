@@ -1,13 +1,35 @@
 # GridXray: `docker compose up --build`, then open http://localhost:8080
 # Requires backend/.env with META_API_KEY (see .env.example).
 services:
+  postgres:
+    image: postgres:18-bookworm
+    environment:
+      POSTGRES_DB: gridxray
+      POSTGRES_USER: gridxray
+      POSTGRES_PASSWORD: gridxray-local
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    ports:
+      - "5433:5432"   # 5433 on the host to avoid clashing with other local Postgres
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U gridxray -d gridxray"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+    restart: unless-stopped
+
   api:
     build: ./backend
     env_file:
       - path: ./backend/.env
         required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://gridxray:gridxray-local@postgres:5432/gridxray
     ports:
       - "8000:8000"   # API + OpenAPI docs at http://localhost:8000/docs
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   web:
@@ -18,3 +40,6 @@ services:
       api:
         condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  postgres_data:

@@ -18,7 +18,19 @@ class Settings(BaseSettings):
     experiment_budget: int = 20
     max_agent_steps: int = 60
     max_wonder_reviews: int = 3
-    database_path: str = "gridxray.db"
+
+    # Postgres. In Docker the api service overrides the host to `postgres`.
+    database_url: str = "postgresql+psycopg://gridxray:gridxray-local@localhost:5433/gridxray"
+
+    # Auth: session JWT in an HttpOnly cookie. Change SECRET_KEY outside local development.
+    secret_key: str = "dev-only-insecure-secret-change-me-in-prod"
+    session_hours: int = 12
+    cookie_secure: bool = False  # True when served over HTTPS
+
+    # Demo account, created on startup so judges can sign in with one click.
+    demo_user_email: str = "demo@gridxray.dev"
+    demo_user_password: str = "gridxray-demo"
+    demo_user_name: str = "Demo Engineer"
 
 
 settings = Settings()

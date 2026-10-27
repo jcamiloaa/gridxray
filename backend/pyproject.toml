@@ -12,6 +12,11 @@ dependencies = [
     "sse-starlette>=2.1",
     "numba>=0.68.0",
     "openai>=3.39.0",
+    "sqlalchemy>=2.0",
+    "psycopg[binary]>=3.2",
+    "pyjwt>=2.9",
+    "argon2-cffi>=23.1",
+    "email-validator>=2.2",
 ]
 
 [dependency-groups]
@@ -33,3 +38,5 @@ target-version = "py312"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["tests"]
+filterwarnings = ["ignore:tap_dependency_table is missing:DeprecationWarning"]

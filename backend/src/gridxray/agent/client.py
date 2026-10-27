@@ -12,12 +12,12 @@ from gridxray.config import Settings, settings
 
 
 class MetaClient:
-    def __init__(self, cfg: Settings = settings, timeout: float = 120.0) -> None:
+    def __init__(self, cfg: Settings = settings, timeout: float = 300.0) -> None:
         if not cfg.meta_api_key:
             raise RuntimeError("Set META_API_KEY in backend/.env")
         self._client = OpenAI(
             base_url=cfg.meta_api_base_url, api_key=cfg.meta_api_key, timeout=timeout,
-            max_retries=3,
+            max_retries=1,
         )
 
     def respond(
@@ -34,6 +34,7 @@ class MetaClient:
             "model": model,
             "input": input,
             "reasoning": {"effort": reasoning_effort, "summary": "auto"},
+            "store": True,  # previous_response_id chaining needs the server-side copy
         }
         if instructions:
             kwargs["instructions"] = instructions

@@ -1,0 +1,278 @@
+{
+ "total": 45,
+ "passed": 45,
+ "failed": 0,
+ "seconds": 46.6,
+ "tests": [
+  {
+   "name": "test_scenarios_require_login",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.07
+  },
+  {
+   "name": "test_demo_button_signs_in",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 2.98
+  },
+  {
+   "name": "test_password_login",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.15
+  },
+  {
+   "name": "test_logout_ends_session",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.06
+  },
+  {
+   "name": "test_tampered_token_rejected",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.05
+  },
+  {
+   "name": "test_showcase_is_public_and_includes_truth",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.3
+  },
+  {
+   "name": "test_truth_requires_login_and_matches_seed",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.31
+  },
+  {
+   "name": "test_requires_login",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 0.05
+  },
+  {
+   "name": "test_run_streams_events_and_scores",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 3.96
+  },
+  {
+   "name": "test_list_usage_and_resume_flow",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 4.22
+  },
+  {
+   "name": "test_demo_sessions_do_not_see_each_others_runs",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 8.26
+  },
+  {
+   "name": "test_runs_survive_sign_out_in_the_same_browser",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 3.86
+  },
+  {
+   "name": "test_report_and_evidence",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 4.43
+  },
+  {
+   "name": "test_synthetic_scenario_is_radial_and_solved[easy]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.18
+  },
+  {
+   "name": "test_synthetic_scenario_is_radial_and_solved[medium]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.25
+  },
+  {
+   "name": "test_synthetic_scenario_is_radial_and_solved[hard]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.39
+  },
+  {
+   "name": "test_reference_networks_load[cigre_mv]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.18
+  },
+  {
+   "name": "test_reference_networks_load[mv_oberrhein]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.68
+  },
+  {
+   "name": "test_same_seed_same_scenario",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.99
+  },
+  {
+   "name": "test_observable_view_hides_topology",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.4
+  },
+  {
+   "name": "test_hard_records_are_outdated",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.4
+  },
+  {
+   "name": "test_easy_has_clean_meters_and_no_ties",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.18
+  },
+  {
+   "name": "test_hard_has_four_feeders",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.4
+  },
+  {
+   "name": "test_load_profile_changes_voltages",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.27
+  },
+  {
+   "name": "test_network_has_overhead_and_underground_lines",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.39
+  },
+  {
+   "name": "test_protection_and_devices_present_in_hard",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.39
+  },
+  {
+   "name": "test_pv_follows_the_sun",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.44
+  },
+  {
+   "name": "test_every_node_has_its_own_city_block[easy]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.18
+  },
+  {
+   "name": "test_every_node_has_its_own_city_block[medium]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.25
+  },
+  {
+   "name": "test_every_node_has_its_own_city_block[hard]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.4
+  },
+  {
+   "name": "test_line_lengths_follow_street_distance",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.25
+  },
+  {
+   "name": "test_feeder_sections_connect_neighbouring_blocks",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.39
+  },
+  {
+   "name": "test_reference_networks_get_locations[cigre_mv]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.18
+  },
+  {
+   "name": "test_reference_networks_get_locations[mv_oberrhein]",
+   "area": "Virtual lab",
+   "outcome": "passed",
+   "seconds": 0.5
+  },
+  {
+   "name": "test_edge_metrics_is_orientation_agnostic",
+   "area": "Scoring",
+   "outcome": "passed",
+   "seconds": 0.0
+  },
+  {
+   "name": "test_perturbation_is_temporary_and_costs_budget",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.25
+  },
+  {
+   "name": "test_limits_and_budget_reject_for_free",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.44
+  },
+  {
+   "name": "test_exhaustive_recovers_easy_network_exactly",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 1.31
+  },
+  {
+   "name": "test_experiments_beat_geography_alone",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 2.82
+  },
+  {
+   "name": "test_ancestor_test_matches_truth",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 1.3
+  },
+  {
+   "name": "test_toolbox_never_exposes_the_truth",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.39
+  },
+  {
+   "name": "test_investigator_runs_the_tool_loop_and_wonder_review",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.26
+  },
+  {
+   "name": "test_investigator_recovers_when_the_server_drops_the_conversation",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.26
+  },
+  {
+   "name": "test_restore_rebuilds_experiments_without_rerunning_them",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.43
+  },
+  {
+   "name": "test_usage_is_priced_per_model",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.0
+  }
+ ]
+}
