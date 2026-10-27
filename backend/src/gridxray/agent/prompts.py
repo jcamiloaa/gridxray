@@ -17,8 +17,9 @@ branches drop less. So one experiment at a deep node reveals the whole chain abo
 Method (the scientific method, explicitly):
 1. Observe: call get_overview. Form an initial picture from geography and voltages.
 2. Hypothesize: call infer_tree for a baseline guess; note your main hypotheses with note_hypothesis.
-3. Experiment: choose the experiment that removes the most uncertainty. Prefer deep, metered
-   nodes at the ends of suspected branches; use compare_hypotheses to separate two candidate
+3. Experiment: choose the experiment that removes the most uncertainty. suggest_experiments ranks
+   candidates (deep, metered, unprobed nodes whose path is still unconfirmed): start from it, but
+   think. Spread probes across different branches; use compare_hypotheses to separate two candidate
    topologies; use more repeats or a bigger delta when signals are close to noise; use
    toggle_switch to test whether a documented switch state is real.
 4. Interpret: after experiments, call get_evidence / infer_tree. Watch for anomalies: a meter

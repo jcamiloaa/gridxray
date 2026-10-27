@@ -9,6 +9,7 @@ const TOOL_LABEL: Record<string, string> = {
   check_hypothesis: 'Checks a hypothesis against the physics',
   compare_hypotheses: 'Looks for the experiment that separates two hypotheses',
   request_review: 'Asks Muse Wonder for a second opinion',
+  suggest_experiments: 'Ranks the most informative next experiments',
 }
 
 function Experiment({ e }: { e: RunEvent }) {

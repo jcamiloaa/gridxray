@@ -227,3 +227,57 @@ def predicted_sensitivity(obs: ObservableGrid, parent: dict[int, int]) -> dict[i
             lca = max((a for a in chain[j] if a in anc_i), key=lambda a: depth[a], default=None)
             pred[i][j] = depth[lca] if lca is not None else 0.0
     return pred
+
+
+def _residual(obs: ObservableGrid, ev: Evidence, parent: dict[int, int]) -> float:
+    """How badly a tree explains the measured drops (sum of squares, common transformer offset removed)."""
+    if check_tree(obs, parent):
+        return float("inf")
+    pred = predicted_sensitivity(obs, parent)
+    total = 0.0
+    for i, row in ev.sens.items():
+        diffs = [row[j] - pred[i][j] for j in row if j in pred[i]]
+        if diffs:
+            off = sum(diffs) / len(diffs)
+            total += sum((d - off) ** 2 for d in diffs)
+    return total
+
+
+def refine(obs: ObservableGrid, ev: Evidence, cand: Candidate, rounds: int = 3, max_nodes: int = 45) -> Candidate:
+    """Hill-climb: reattach nodes to nearby parents while that explains the measured drops better.
+
+    Uses the numeric value of every drop, not only equality tests. Skipped on very large
+    networks to keep tool calls fast.
+    """
+    if not ev.sens or len(obs.nodes) > max_nodes:
+        return cand
+    loc = {n.id: n.location for n in obs.nodes}
+    roots = [s.id for s in obs.substations]
+    parent, basis = dict(cand.parent), dict(cand.basis)
+    best = _residual(obs, ev, parent)
+    for _ in range(rounds):
+        improved = False
+        for j, lj in loc.items():
+            if cand.basis.get(j) == "measured":
+                continue  # directly confirmed by an ancestor test: never second-guessed by the model fit
+            options = [c for c, lc in loc.items() if c != j and manhattan(lc, lj) <= MAX_HOP]
+            if lj[0] == 0:
+                options += roots
+            for c in options:
+                if c == parent[j]:
+                    continue
+                trial = dict(parent)
+                trial[j] = c
+                r = _residual(obs, ev, trial)
+                if r < best - 1e-12:
+                    best, parent, improved = r, trial, True
+                    basis[j] = "inferred"  # chosen by model fit, not by a direct ancestor test
+        if not improved:
+            break
+    return Candidate(parent, basis)
+
+
+def best_tree(obs: ObservableGrid, ev: Evidence | None = None) -> Candidate:
+    """Ancestor-test reconstruction, then a physics fit to the measured drops."""
+    ev = ev or Evidence()
+    return refine(obs, ev, infer_tree(obs, ev))

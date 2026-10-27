@@ -18,7 +18,8 @@ from gridxray.tools.registry import ToolError, dumps
 
 MAX_RECOVERIES = 3  # times the conversation may be rebuilt after the server drops it
 STALL_STEPS = 8  # turns without an accepted experiment before Wonder is called in
-UNCERTAIN_REVIEW_RATIO = 0.3  # share of uncertain edges that triggers a review before closing
+UNCERTAIN_REVIEW_RATIO = 0.3
+MIDPOINT_INFERRED_RATIO = 0.35  # unconfirmed share at half budget that calls Wonder in  # share of uncertain edges that triggers a review before closing
 
 
 @dataclass
@@ -142,11 +143,11 @@ class Investigator:
 
     def emit_candidate(self, why: str, parent: dict[int, int] | None = None, uncertain: list[int] | None = None) -> None:
         """Current best tree (node ids) so the UI can draw the reconstruction as it grows."""
-        from gridxray.tools.reconstruct import infer_tree
+        from gridxray.tools.reconstruct import best_tree
 
         tb = self.run.toolbox
         if parent is None:
-            cand = infer_tree(tb.obs, tb.evidence())
+            cand = best_tree(tb.obs, tb.evidence())
             parent, basis = cand.parent, cand.basis
         else:
             basis = {c: ("uncertain" if c in (uncertain or []) else "proposed") for c in parent}
@@ -192,10 +193,10 @@ class Investigator:
 
     def fallback_result(self, why: str) -> None:
         """Close with the best evidence-backed tree, flagging every inferred edge as uncertain."""
-        from gridxray.tools.reconstruct import infer_tree
+        from gridxray.tools.reconstruct import best_tree
 
         tb = self.run.toolbox
-        cand = infer_tree(tb.obs, tb.evidence())
+        cand = best_tree(tb.obs, tb.evidence())
         uncertain = [c for c, b in cand.basis.items() if b == "inferred"]
         tb.result = {"parent": cand.parent, "uncertain": uncertain, "summary": f"Automatic close ({why})."}
         self.emit_candidate("final proposal", cand.parent, uncertain)
@@ -284,6 +285,18 @@ class Investigator:
                 outputs.append({"type": "function_call_output", "call_id": c.call_id, "output": dumps(out)})
             if tb.result is not None:
                 break
+
+            # orchestrator escalation: half the budget is spent and much of the tree is still unconfirmed
+            if (self.run.reviews == 0 and tb.engine.remaining > 0
+                    and self.run.experiments_used >= max(2, tb.engine.budget // 2)):
+                from gridxray.tools.reconstruct import best_tree
+
+                cand = best_tree(tb.obs, tb.evidence())
+                share = sum(1 for b in cand.basis.values() if b == "inferred") / max(1, len(cand.basis))
+                if share > MIDPOINT_INFERRED_RATIO:
+                    advice = self.review(f"Half the budget is spent and {share:.0%} of the connections are still "
+                                         "unconfirmed. Where should the remaining experiments go?", "midpoint review")
+                    outputs.append({"role": "user", "content": f"Second-opinion review from Muse Wonder:\n{advice}"})
 
             # orchestrator escalation: progress has stalled
             if (self.run.steps - last_experiment_step >= STALL_STEPS and tb.engine.remaining > 0

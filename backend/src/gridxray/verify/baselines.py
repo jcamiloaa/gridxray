@@ -6,7 +6,14 @@ import numpy as np
 
 from gridxray.lab import Scenario
 from gridxray.sim import ExperimentEngine
-from gridxray.tools.reconstruct import MAX_HOP, Candidate, Evidence, infer_tree, manhattan
+from gridxray.tools.reconstruct import (
+    MAX_HOP,
+    Candidate,
+    Evidence,
+    best_tree,
+    infer_tree,
+    manhattan,
+)
 
 
 @dataclass
@@ -30,7 +37,7 @@ def exhaustive(s: Scenario, delta_kw: float = 2000.0) -> BaselineResult:
                 break
     ev = Evidence.from_records(engine.history)
     used = sum(r.cost for r in engine.history)
-    return BaselineResult("exhaustive", infer_tree(s.observable(), ev), used)
+    return BaselineResult("exhaustive", best_tree(s.observable(), ev), used)
 
 
 def heuristic(s: Scenario, budget: int, delta_kw: float = 2000.0) -> BaselineResult:
@@ -44,7 +51,7 @@ def heuristic(s: Scenario, budget: int, delta_kw: float = 2000.0) -> BaselineRes
     for n in probes:
         engine.perturb_load(n, delta_kw, 20)
     used = sum(r.cost for r in engine.history)
-    return BaselineResult("heuristic", infer_tree(s.observable(), Evidence.from_records(engine.history)), used)
+    return BaselineResult("heuristic", best_tree(s.observable(), Evidence.from_records(engine.history)), used)
 
 
 def passive(s: Scenario) -> BaselineResult:

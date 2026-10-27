@@ -4,19 +4,19 @@
   "seed": 1,
   "budget": 8,
   "wonder": true,
-  "steps": 20,
-  "reviews": 0,
-  "tokens": 134029,
-  "seconds": 321.7,
+  "steps": 23,
+  "reviews": 1,
+  "tokens": 160289,
+  "seconds": 386.6,
   "gridxray": {
-   "precision": 0.867,
-   "recall": 0.867,
-   "f1": 0.867,
-   "correct_edges": 13,
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "correct_edges": 15,
    "total_edges": 15,
-   "wrong_edges": 2,
-   "uncertain_flagged": 7,
-   "wrong_and_flagged": 2,
+   "wrong_edges": 0,
+   "uncertain_flagged": 5,
+   "wrong_and_flagged": 0,
    "experiments": 8
   },
   "geographic": {
@@ -41,17 +41,6 @@
    "wrong_and_flagged": 0,
    "experiments": 0
   },
-  "exhaustive": {
-   "precision": 1.0,
-   "recall": 1.0,
-   "f1": 1.0,
-   "correct_edges": 15,
-   "total_edges": 15,
-   "wrong_edges": 0,
-   "uncertain_flagged": 0,
-   "wrong_and_flagged": 0,
-   "experiments": 15
-  },
   "heuristic": {
    "precision": 0.733,
    "recall": 0.733,
@@ -62,6 +51,17 @@
    "uncertain_flagged": 0,
    "wrong_and_flagged": 0,
    "experiments": 8
+  },
+  "exhaustive": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "correct_edges": 15,
+   "total_edges": 15,
+   "wrong_edges": 0,
+   "uncertain_flagged": 0,
+   "wrong_and_flagged": 0,
+   "experiments": 15
   }
  },
  {
@@ -69,18 +69,18 @@
   "seed": 2,
   "budget": 8,
   "wonder": true,
-  "steps": 22,
-  "reviews": 0,
-  "tokens": 178012,
-  "seconds": 410.9,
+  "steps": 19,
+  "reviews": 1,
+  "tokens": 167077,
+  "seconds": 394.6,
   "gridxray": {
-   "precision": 1.0,
-   "recall": 1.0,
-   "f1": 1.0,
-   "correct_edges": 15,
+   "precision": 0.733,
+   "recall": 0.733,
+   "f1": 0.733,
+   "correct_edges": 11,
    "total_edges": 15,
-   "wrong_edges": 0,
-   "uncertain_flagged": 7,
+   "wrong_edges": 4,
+   "uncertain_flagged": 2,
    "wrong_and_flagged": 0,
    "experiments": 8
   },
@@ -106,17 +106,6 @@
    "wrong_and_flagged": 0,
    "experiments": 0
   },
-  "exhaustive": {
-   "precision": 1.0,
-   "recall": 1.0,
-   "f1": 1.0,
-   "correct_edges": 15,
-   "total_edges": 15,
-   "wrong_edges": 0,
-   "uncertain_flagged": 0,
-   "wrong_and_flagged": 0,
-   "experiments": 15
-  },
   "heuristic": {
    "precision": 0.6,
    "recall": 0.6,
@@ -127,6 +116,17 @@
    "uncertain_flagged": 0,
    "wrong_and_flagged": 0,
    "experiments": 8
+  },
+  "exhaustive": {
+   "precision": 1.0,
+   "recall": 1.0,
+   "f1": 1.0,
+   "correct_edges": 15,
+   "total_edges": 15,
+   "wrong_edges": 0,
+   "uncertain_flagged": 0,
+   "wrong_and_flagged": 0,
+   "experiments": 15
   }
  },
  {
@@ -134,19 +134,19 @@
   "seed": 3,
   "budget": 8,
   "wonder": true,
-  "steps": 26,
-  "reviews": 0,
-  "tokens": 210804,
-  "seconds": 463.8,
+  "steps": 22,
+  "reviews": 1,
+  "tokens": 155930,
+  "seconds": 402.3,
   "gridxray": {
-   "precision": 0.733,
-   "recall": 0.733,
-   "f1": 0.733,
-   "correct_edges": 11,
+   "precision": 0.8,
+   "recall": 0.8,
+   "f1": 0.8,
+   "correct_edges": 12,
    "total_edges": 15,
-   "wrong_edges": 4,
-   "uncertain_flagged": 7,
-   "wrong_and_flagged": 2,
+   "wrong_edges": 3,
+   "uncertain_flagged": 5,
+   "wrong_and_flagged": 1,
    "experiments": 8
   },
   "geographic": {
@@ -171,6 +171,17 @@
    "wrong_and_flagged": 0,
    "experiments": 0
   },
+  "heuristic": {
+   "precision": 0.867,
+   "recall": 0.867,
+   "f1": 0.867,
+   "correct_edges": 13,
+   "total_edges": 15,
+   "wrong_edges": 2,
+   "uncertain_flagged": 0,
+   "wrong_and_flagged": 0,
+   "experiments": 8
+  },
   "exhaustive": {
    "precision": 1.0,
    "recall": 1.0,
@@ -181,17 +192,6 @@
    "uncertain_flagged": 0,
    "wrong_and_flagged": 0,
    "experiments": 15
-  },
-  "heuristic": {
-   "precision": 0.667,
-   "recall": 0.667,
-   "f1": 0.667,
-   "correct_edges": 10,
-   "total_edges": 15,
-   "wrong_edges": 5,
-   "uncertain_flagged": 0,
-   "wrong_and_flagged": 0,
-   "experiments": 8
   }
  },
  {
@@ -199,19 +199,19 @@
   "seed": 1,
   "budget": 15,
   "wonder": true,
-  "steps": 37,
-  "reviews": 0,
-  "tokens": 364913,
-  "seconds": 620.1,
+  "steps": 49,
+  "reviews": 1,
+  "tokens": 598528,
+  "seconds": 939.5,
   "gridxray": {
-   "precision": 0.567,
-   "recall": 0.567,
-   "f1": 0.567,
-   "correct_edges": 17,
+   "precision": 0.6,
+   "recall": 0.6,
+   "f1": 0.6,
+   "correct_edges": 18,
    "total_edges": 30,
-   "wrong_edges": 13,
-   "uncertain_flagged": 11,
-   "wrong_and_flagged": 6,
+   "wrong_edges": 12,
+   "uncertain_flagged": 15,
+   "wrong_and_flagged": 5,
    "experiments": 15
   },
   "geographic": {
@@ -236,27 +236,27 @@
    "wrong_and_flagged": 0,
    "experiments": 0
   },
-  "exhaustive": {
-   "precision": 0.867,
-   "recall": 0.867,
-   "f1": 0.867,
-   "correct_edges": 26,
-   "total_edges": 30,
-   "wrong_edges": 4,
-   "uncertain_flagged": 0,
-   "wrong_and_flagged": 0,
-   "experiments": 30
-  },
   "heuristic": {
-   "precision": 0.7,
-   "recall": 0.7,
-   "f1": 0.7,
-   "correct_edges": 21,
+   "precision": 0.633,
+   "recall": 0.633,
+   "f1": 0.633,
+   "correct_edges": 19,
    "total_edges": 30,
-   "wrong_edges": 9,
+   "wrong_edges": 11,
    "uncertain_flagged": 0,
    "wrong_and_flagged": 0,
    "experiments": 15
+  },
+  "exhaustive": {
+   "precision": 0.9,
+   "recall": 0.9,
+   "f1": 0.9,
+   "correct_edges": 27,
+   "total_edges": 30,
+   "wrong_edges": 3,
+   "uncertain_flagged": 0,
+   "wrong_and_flagged": 0,
+   "experiments": 30
   }
  },
  {
@@ -264,19 +264,19 @@
   "seed": 2,
   "budget": 15,
   "wonder": true,
-  "steps": 28,
-  "reviews": 0,
-  "tokens": 318331,
-  "seconds": 553.5,
+  "steps": 29,
+  "reviews": 1,
+  "tokens": 293301,
+  "seconds": 502.0,
   "gridxray": {
-   "precision": 0.633,
-   "recall": 0.633,
-   "f1": 0.633,
-   "correct_edges": 19,
+   "precision": 0.667,
+   "recall": 0.667,
+   "f1": 0.667,
+   "correct_edges": 20,
    "total_edges": 30,
-   "wrong_edges": 11,
-   "uncertain_flagged": 13,
-   "wrong_and_flagged": 7,
+   "wrong_edges": 10,
+   "uncertain_flagged": 12,
+   "wrong_and_flagged": 6,
    "experiments": 15
   },
   "geographic": {
@@ -301,27 +301,27 @@
    "wrong_and_flagged": 0,
    "experiments": 0
   },
-  "exhaustive": {
-   "precision": 0.767,
-   "recall": 0.767,
-   "f1": 0.767,
-   "correct_edges": 23,
-   "total_edges": 30,
-   "wrong_edges": 7,
-   "uncertain_flagged": 0,
-   "wrong_and_flagged": 0,
-   "experiments": 30
-  },
   "heuristic": {
-   "precision": 0.633,
-   "recall": 0.633,
-   "f1": 0.633,
-   "correct_edges": 19,
+   "precision": 0.667,
+   "recall": 0.667,
+   "f1": 0.667,
+   "correct_edges": 20,
    "total_edges": 30,
-   "wrong_edges": 11,
+   "wrong_edges": 10,
    "uncertain_flagged": 0,
    "wrong_and_flagged": 0,
    "experiments": 15
+  },
+  "exhaustive": {
+   "precision": 0.933,
+   "recall": 0.933,
+   "f1": 0.933,
+   "correct_edges": 28,
+   "total_edges": 30,
+   "wrong_edges": 2,
+   "uncertain_flagged": 0,
+   "wrong_and_flagged": 0,
+   "experiments": 30
   }
  },
  {
@@ -329,19 +329,19 @@
   "seed": 3,
   "budget": 15,
   "wonder": true,
-  "steps": 17,
-  "reviews": 0,
-  "tokens": 151227,
-  "seconds": 389.5,
+  "steps": 32,
+  "reviews": 1,
+  "tokens": 350981,
+  "seconds": 578.5,
   "gridxray": {
-   "precision": 0.567,
-   "recall": 0.567,
-   "f1": 0.567,
-   "correct_edges": 17,
+   "precision": 0.6,
+   "recall": 0.6,
+   "f1": 0.6,
+   "correct_edges": 18,
    "total_edges": 30,
-   "wrong_edges": 13,
-   "uncertain_flagged": 10,
-   "wrong_and_flagged": 7,
+   "wrong_edges": 12,
+   "uncertain_flagged": 17,
+   "wrong_and_flagged": 9,
    "experiments": 15
   },
   "geographic": {
@@ -366,27 +366,27 @@
    "wrong_and_flagged": 0,
    "experiments": 0
   },
-  "exhaustive": {
-   "precision": 0.833,
-   "recall": 0.833,
-   "f1": 0.833,
-   "correct_edges": 25,
-   "total_edges": 30,
-   "wrong_edges": 5,
-   "uncertain_flagged": 0,
-   "wrong_and_flagged": 0,
-   "experiments": 30
-  },
   "heuristic": {
-   "precision": 0.667,
-   "recall": 0.667,
-   "f1": 0.667,
-   "correct_edges": 20,
+   "precision": 0.633,
+   "recall": 0.633,
+   "f1": 0.633,
+   "correct_edges": 19,
    "total_edges": 30,
-   "wrong_edges": 10,
+   "wrong_edges": 11,
    "uncertain_flagged": 0,
    "wrong_and_flagged": 0,
    "experiments": 15
+  },
+  "exhaustive": {
+   "precision": 0.867,
+   "recall": 0.867,
+   "f1": 0.867,
+   "correct_edges": 26,
+   "total_edges": 30,
+   "wrong_edges": 4,
+   "uncertain_flagged": 0,
+   "wrong_and_flagged": 0,
+   "experiments": 30
   }
  }
 ]

@@ -10,7 +10,7 @@ from typing import Any
 
 from gridxray.lab import Scenario
 from gridxray.sim import ExperimentEngine
-from gridxray.tools.reconstruct import Evidence, check_tree, infer_tree, predicted_sensitivity
+from gridxray.tools.reconstruct import Evidence, best_tree, check_tree, predicted_sensitivity
 
 
 def _fn(name: str, description: str, properties: dict, required: list[str] | None = None) -> dict:
@@ -61,6 +61,9 @@ TOOLS: list[dict] = [
         "experiments are 'measured'; the rest are 'inferred' from geography and voltage and need "
         "confirmation. Use it as a starting point, not as the answer.",
         {"tolerance": {"type": "number", "description": "Matching tolerance in pu per MW (default 0.00012). Raise it when data is noisy."}}),
+    _fn("suggest_experiments",
+        "Ranked candidates for the next load perturbation: metered nodes not yet probed, far from the substation, "
+        "whose path still has many unconfirmed (inferred) connections. A starting point: you decide.", {}),
     _fn("check_hypothesis",
         "Validate a topology hypothesis and measure how well it explains the experiments: returns whether it "
         "is a valid radial tree, the mismatch per experiment and the worst nodes. Give either `changes` to the "
@@ -119,7 +122,7 @@ class ToolBox:
 
     def _parents(self, edges: list[dict] | None = None, changes: list[dict] | None = None) -> dict[int, int]:
         """A full proposal from explicit edges, or the current candidate with the given changes."""
-        parent = {} if edges else dict(infer_tree(self.obs, self.evidence()).parent)
+        parent = {} if edges else dict(best_tree(self.obs, self.evidence()).parent)
         for e in (edges or []) + (changes or []):
             parent[self._node(e["child"])] = self._node(e["parent"])
         return parent
@@ -190,11 +193,38 @@ class ToolBox:
 
     def t_infer_tree(self, tolerance: float | None = None) -> dict:
         # a custom tolerance applies to this call only, so it never silently shapes the final answer
-        cand = infer_tree(self.obs, self.evidence(float(tolerance) if tolerance else None))
+        cand = best_tree(self.obs, self.evidence(float(tolerance) if tolerance else None))
         edges = [{"child": self.name[c], "parent": self.name[p], "basis": cand.basis[c]} for c, p in cand.parent.items()]
         inferred = [e["child"] for e in edges if e["basis"] == "inferred"]
         return {"edges": edges, "inferred_count": len(inferred), "measured_count": len(edges) - len(inferred),
                 "inferred_children": inferred}
+
+    def t_suggest_experiments(self) -> dict:
+        ev = self.evidence()
+        cand = best_tree(self.obs, ev)
+        roots = {s.id for s in self.obs.substations}
+        loc = {n.id: n.location for n in self.obs.nodes}
+
+        def path(j: int) -> list[int]:
+            out: list[int] = []
+            while j not in roots and j in cand.parent and j not in out:
+                out.append(j)
+                j = cand.parent[j]
+            return out
+
+        probed = set(ev.depth)
+        rows = []
+        for j in self.engine.s.metered:
+            if j in probed:
+                continue
+            p = path(j)
+            inferred = sum(1 for n in p if cand.basis.get(n) == "inferred")
+            rows.append((inferred, loc[j][0], -len(p), j, len(p)))
+        rows.sort(reverse=True)
+        return {"suggestions": [{"node": self.name[j], "unconfirmed_on_path": inf, "path_length": plen, "block": loc[j]}
+                                for inf, _, _, j, plen in rows[:6]],
+                "already_probed": [self.name[j] for j in probed],
+                "budget_remaining": self.engine.remaining}
 
     def t_check_hypothesis(self, edges: list[dict] | None = None, changes: list[dict] | None = None) -> dict:
         parent = self._parents(edges, changes)

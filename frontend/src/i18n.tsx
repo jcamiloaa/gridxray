@@ -62,6 +62,7 @@ const ES: Record<string, string> = {
   'Builds a candidate topology': 'Arma una topología candidata', 'Checks a hypothesis against the physics': 'Contrasta una hipótesis con la física',
   'Looks for the experiment that separates two hypotheses': 'Busca el experimento que separa dos hipótesis',
   'Asks Muse Wonder for a second opinion': 'Pide una segunda opinión a Muse Wonder',
+  'Ranks the most informative next experiments': 'Ordena los próximos experimentos más informativos',
   Experiment: 'Experimento', rejected: 'rechazado', 'Strongest response': 'Respuesta más fuerte', 'Budget left': 'Presupuesto restante',
   'operate switch': 'operar interruptor', at: 'en', Hypothesis: 'Hipótesis', Confidence: 'Confianza',
   'Muse Wonder is reviewing the evidence': 'Muse Wonder está revisando la evidencia',
