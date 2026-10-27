@@ -72,8 +72,8 @@ def scenario_truth(
 
 
 @app.get("/evidence")
-def evidence_page() -> dict:
-    """Public: benchmark, test results, guarantees, scoring method and live investigation statistics."""
+def evidence_page(_: CurrentUser) -> dict:
+    """Signed-in users only: benchmark, test results, guarantees, scoring method and live statistics."""
     from sqlalchemy import func
 
     from gridxray.evidence import evidence

@@ -17,7 +17,7 @@ const COLORS: Record<string, string> = { gridxray: '#0e6e8c', heuristic: '#e9a23
 const LABEL: Record<string, string> = { gridxray: 'GridXray', heuristic: 'Same budget, no AI', exhaustive: 'Exhaustive', passive: 'Passive', geographic: 'Geographic' }
 
 /** Everything a judge needs to trust the results: benchmark, tests, guarantees and the scoring method. */
-export function EvidenceView({ onClose }: { onClose: () => void }) {
+export function EvidenceView({ onClose, page = false }: { onClose?: () => void; page?: boolean }) {
   const { t } = useI18n()
   const [ev, setEv] = useState<Evidence | null>(null)
   const [err, setErr] = useState<string | null>(null)
@@ -26,11 +26,12 @@ export function EvidenceView({ onClose }: { onClose: () => void }) {
   const areas = ev?.tests ? [...new Set(ev.tests.tests.map((x) => x.area))] : []
 
   return (
-    <div className="dialog-backdrop" onClick={onClose}>
-      <section className="evidence card" role="dialog" aria-modal="true" aria-label={t('Evidence')} onClick={(e) => e.stopPropagation()}>
+    <div className={page ? 'evidence-page' : 'dialog-backdrop'} onClick={onClose}>
+      <section className={`evidence card${page ? ' evidence--page' : ''}`} role={page ? undefined : 'dialog'} aria-modal={page ? undefined : true}
+        aria-label={t('Evidence')} onClick={(e) => e.stopPropagation()}>
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <div><span className="eyebrow">{t('For the judges')}</span><h2>{t('Evidence')}</h2></div>
-          <button className="btn-ghost" onClick={onClose} aria-label={t('Close')}>✕</button>
+          {onClose && !page && <button className="btn-ghost" onClick={onClose} aria-label={t('Close')}>✕</button>}
         </div>
         {err && <p className="error">{err}</p>}
         {!ev ? <p className="muted">…</p> : (

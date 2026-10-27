@@ -445,3 +445,9 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .evidence__areas li.passed { color: #0f7a53; }
 .evidence__areas li.failed { color: var(--danger); }
 @media (max-width: 860px) { .evidence__grid { grid-template-columns: 1fr; } .bench-bar { grid-template-columns: 120px 1fr 80px; } }
+
+.evidence-shell { min-height: 100vh; background: var(--bg); }
+.evidence-page { padding: 24px 16px 48px; display: grid; justify-items: center; }
+.evidence--page { max-height: none; overflow: visible; }
+.evidence-link { text-decoration: none; color: var(--text); font-weight: 600; padding: .6em 1em; border-radius: 10px; }
+.evidence-link:hover { background: var(--surface-2); }

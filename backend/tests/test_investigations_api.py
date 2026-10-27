@@ -36,6 +36,7 @@ def client(monkeypatch):
 def test_requires_login():
     with TestClient(app) as c:
         assert c.post("/investigations", json={}).status_code == 401
+        assert c.get("/evidence").status_code == 401  # evidence is not public
 
 
 def test_run_streams_events_and_scores(client):

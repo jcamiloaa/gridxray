@@ -131,7 +131,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
         </nav>
         <div className="topbar__actions">
           <LanguageToggle />
-          <button className="btn-ghost" onClick={() => setDrawer('evidence')}>{t('Evidence')}</button>
+          <a className="btn-ghost evidence-link" href="/evidence">{t('Evidence')}</a>
           <button className="btn-ghost" onClick={() => setDrawer('runs')}>{t('Runs')}</button>
           <button className="btn-ghost" onClick={() => setDrawer('usage')}>{t('Usage & settings')}</button>
           <button className="btn-ghost" onClick={() => setGuide(true)}>{t('Guide')}</button>
