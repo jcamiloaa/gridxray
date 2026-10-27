@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import type { RunEvent } from '../api/client'
 import { useI18n } from '../i18n'
+import { Markdown } from './Markdown'
 
 const TOOL_LABEL: Record<string, string> = {
   get_overview: 'Reads what the utility knows',
@@ -46,7 +47,7 @@ export function Timeline({ events, running }: { events: RunEvent[]; running: boo
             return <li key={i} className="tl tl--sys"><span className="tl__icon">▶</span><div><b>{t('Investigation started')}</b>
               <p>{String(e.nodes)} {t('secondary substations')} · {t('budget')} {String(e.budget)} {t('experiments')}</p></div></li>
           case 'message':
-            return <li key={i} className="tl tl--msg"><span className="tl__icon tl__icon--spark">S</span><div><p>{String(e.text)}</p></div></li>
+            return <li key={i} className="tl tl--msg"><span className="tl__icon tl__icon--spark">S</span><div><Markdown text={String(e.text)} /></div></li>
           case 'reasoning':
             return <li key={i} className="tl tl--think"><span className="tl__icon">…</span><div><p>{String(e.text)}</p></div></li>
           case 'tool_call': {
@@ -58,7 +59,7 @@ export function Timeline({ events, running }: { events: RunEvent[]; running: boo
           case 'hypothesis':
             return (
               <li key={i} className="tl tl--hyp"><span className="tl__icon">💡</span><div>
-                <b>{t('Hypothesis')}</b><p>{String(e.statement)}</p>
+                <b>{t('Hypothesis')}</b><Markdown text={String(e.statement)} />
                 <span className="tl__conf"><i style={{ width: `${Math.round(Number(e.confidence) * 100)}%` }} /></span>
                 <small>{t('Confidence')} {Math.round(Number(e.confidence) * 100)}%</small>
               </div></li>
@@ -67,10 +68,10 @@ export function Timeline({ events, running }: { events: RunEvent[]; running: boo
             return <li key={i} className="tl tl--sys"><span className="tl__icon tl__icon--wonder">W</span><div><p>{t('Muse Wonder is reviewing the evidence')} ({String(e.trigger)})…</p></div></li>
           case 'review':
             return <li key={i} className="tl tl--review"><span className="tl__icon tl__icon--wonder">W</span><div>
-              <b>{t('Muse Wonder · second opinion')}</b><p className="tl__pre">{String(e.advice)}</p></div></li>
+              <b>{t('Muse Wonder · second opinion')}</b><Markdown text={String(e.advice)} /></div></li>
           case 'result':
             return <li key={i} className="tl tl--result"><span className="tl__icon">✓</span><div>
-              <b>{t('Result submitted')}</b><p>{String(e.summary)}</p></div></li>
+              <b>{t('Result submitted')}</b><Markdown text={String(e.summary)} /></div></li>
           case 'resumed':
           case 'stopped':
           case 'recovered':

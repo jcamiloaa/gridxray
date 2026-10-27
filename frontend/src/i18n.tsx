@@ -82,7 +82,10 @@ const ES: Record<string, string> = {
   Language: 'Idioma', 'usage.note': 'Costos calculados con los precios publicados de la Meta Model API. El razonamiento se cobra como salida.',
   Close: 'Cerrar', 'No reading': 'Sin lectura', geographic: 'geográfico', passive: 'pasivo', exhaustive: 'exhaustivo',
   // evidence + report
-  Evidence: 'Evidencia', Home: 'Inicio', 'Open workspace': 'Abrir espacio de trabajo', 'Try the demo': 'Probar la demo', 'For the judges': 'Para los jueces', 'Download report': 'Descargar informe', Report: 'Informe',
+  Evidence: 'Evidencia', 'Drag to resize': 'Arrastra para cambiar el tamaño', 'correct connections': 'conexiones correctas',
+  'Compare with the real network': 'Comparar con la red real', 'Show the real network': 'Ver la red real', Node: 'Nodo',
+  'AI said': 'La IA dijo', Real: 'Real',
+  'compare.note': 'Verde = la IA acertó el padre. Rojo = se equivocó (se muestra el padre real). "?" = la IA lo marcó como incierto. En el mapa: verde correcta, rojo errónea, gris faltante.', Home: 'Inicio', 'Open workspace': 'Abrir espacio de trabajo', 'Try the demo': 'Probar la demo', 'For the judges': 'Para los jueces', 'Download report': 'Descargar informe', Report: 'Informe',
   'Benchmark: real investigations with Muse Spark + Muse Wonder': 'Benchmark: investigaciones reales con Muse Spark + Muse Wonder',
   'bench.intro': 'Cada fila resume investigaciones reales, puntuadas por un verificador sin IA y comparadas con cuatro métodos sin IA sobre las mismas redes.',
   'bench.honest': 'Lectura honesta: en redes pequeñas GridXray supera al método sin IA con el mismo presupuesto; en redes medianas todavía no. Estos números se actualizan con cada benchmark.',
@@ -124,6 +127,7 @@ const EN_LONG: Record<string, string> = {
   'runs.empty': 'No investigations in this session yet.',
   'runs.note': 'Investigations keep running on the server even if you close the browser, and resume on their own if the service restarts.',
   'usage.note': "Costs computed with the Meta Model API's published prices. Reasoning tokens are billed as output.",
+  'compare.note': 'Green = the AI found the right parent. Red = it was wrong (the real parent is shown). "?" = the AI flagged it as uncertain. On the map: green correct, red wrong, grey missed.',
   'bench.intro': 'Each row summarizes real investigations, scored by a checker with no AI and compared with four non-AI methods on the same networks.',
   'bench.honest': 'Honest reading: on small networks GridXray beats the same-budget non-AI method; on medium networks it does not yet. These numbers update with every benchmark.',
 }

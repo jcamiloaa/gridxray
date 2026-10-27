@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { createScenario, getActiveInvestigation, getTruth, sourceOf, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
 import { Brand } from '../components/Brand'
 import { Icon } from '../components/Icon'
@@ -23,7 +23,6 @@ const SYNTHETIC: SourceOption[] = [
 ]
 const BENCHMARKS: SourceOption[] = [
   { key: 'cigre', source: { reference: 'cigre_mv' }, title: 'CIGRE MV benchmark', text: 'International reference network · 12 substations' },
-  { key: 'oberrhein', source: { reference: 'mv_oberrhein' }, title: 'MV Oberrhein', text: 'Real-world-sized German network · 175 substations' },
 ]
 
 export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: () => void; onHome: () => void }) {
@@ -39,6 +38,23 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
   const [revealed, setRevealed] = useState(false)
   const [generated, setGenerated] = useState<{ source: ScenarioSource; seed: number } | null>(null)
   const [drawer, setDrawer] = useState<'runs' | 'usage' | 'evidence' | null>(null)
+  // the investigation log can be resized by dragging its left edge; the width is remembered
+  const [logWidth, setLogWidth] = useState(() => {
+    try { return Number(localStorage.getItem('gridxray.logWidth')) || 380 } catch { return 380 }
+  })
+  const startResize = (e: ReactPointerEvent) => {
+    e.preventDefault()
+    const x0 = e.clientX
+    const w0 = logWidth
+    const move = (ev: PointerEvent) => setLogWidth(Math.min(820, Math.max(300, w0 + (x0 - ev.clientX))))
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      setLogWidth((w) => { try { localStorage.setItem('gridxray.logWidth', String(w)) } catch { /* convenience only */ } return w })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
   const { t, lang } = useI18n()
 
   const run = useInvestigation(scenario, generated)
@@ -250,11 +266,47 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
               <SceneView model={model} selected={selected} onSelect={setSelected} showLabels={labels} flow citySeed={scenario?.seed ?? 0}
                 overlay={run.overlay}>
               {run.events.length > 0 && (
-                <div className="ws-overlay ws-timeline card" aria-label={t('Investigation log')}>
+                <div className="ws-overlay ws-timeline card" aria-label={t('Investigation log')} style={{ width: logWidth }}>
+                  <div className="ws-timeline__resize" onPointerDown={startResize} role="separator" aria-orientation="vertical"
+                    aria-label={t('Drag to resize')} title={t('Drag to resize')} />
                   <div className="ws-timeline__head">
                     <b>{t('Investigation log')}</b>
                     <span className={`pill run-pill run-pill--${run.status}`}>{t(run.status)}</span>
                   </div>
+                  {run.score?.gridxray && (
+                    <div className="run-result">
+                      <div className="run-result__head">
+                        <span className="run-result__f1">{run.score.gridxray.f1.toFixed(2)}</span>
+                        <span><b>F1</b> · {run.score.gridxray.correct_edges}/{run.score.gridxray.total_edges} {t('correct connections')}
+                          <br /><small className="muted">{run.score.gridxray.experiments} {t('experiments')} · {t('Same budget, no AI')} {
+                            run.score.baselines.find((b) => b.name === 'heuristic')?.f1.toFixed(2) ?? '—'}</small></span>
+                      </div>
+                      <div className="row" style={{ flexWrap: 'wrap' }}>
+                        <button className="btn-primary" onClick={run.compare} disabled={run.compared}>{run.compared ? t('Compared with the real network') : t('Compare with the real network')}</button>
+                        {run.runId && <a className="btn-link" href={`/api/investigations/${run.runId}/report?lang=${lang}`} target="_blank" rel="noreferrer">{t('Report')}</a>}
+                      </div>
+                      {run.comparison && (
+                        <div className="compare">
+                          <div className="compare__stats">
+                            <span className="compare__ok">✓ {run.comparison.correct} {t('correct')}</span>
+                            <span className="compare__bad">✗ {run.comparison.wrong.length} {t('wrong')}</span>
+                            <button className={revealed ? 'btn-primary' : ''} onClick={toggleReveal}>{revealed ? t('Hide true network') : t('Show the real network')}</button>
+                          </div>
+                          <table className="compare__table">
+                            <thead><tr><th>{t('Node')}</th><th>{t('AI said')}</th><th>{t('Real')}</th></tr></thead>
+                            <tbody>
+                              {run.comparison.rows.map((r) => (
+                                <tr key={r.node} className={r.ok ? 'is-ok' : 'is-bad'}>
+                                  <td>{r.node}</td><td>{r.ai}{r.flagged ? ' ?' : ''}</td><td>{r.ok ? '✓' : r.real}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          <small className="muted">{t('compare.note')}</small>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <RunProgress events={run.events} total={scenario?.nodes.length ?? 0} />
                   {run.overlay && (
                     <div className="ws-timeline__legend">
@@ -296,7 +348,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 <button onClick={() => setLabels((l) => !l)} aria-pressed={labels}>{labels ? t('Hide labels') : t('Show labels')}</button>
               </div>
               {node && (
-                <div className={`ws-overlay ws-detail card${run.events.length ? ' ws-detail--shifted' : ''}`} role="dialog" aria-label={`${node.name} details`}>
+                <div style={run.events.length ? { right: logWidth + 80 } : undefined} className={`ws-overlay ws-detail card`} role="dialog" aria-label={`${node.name} details`}>
                   <div className="row" style={{ justifyContent: 'space-between' }}>
                     <h3>{node.name}</h3>
                     <button className="btn-ghost" onClick={() => setSelected(null)} aria-label="Close">✕</button>

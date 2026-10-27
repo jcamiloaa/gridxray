@@ -1,5 +1,6 @@
 """Printable end-of-investigation report (HTML), in the run's language."""
 
+import re
 from datetime import datetime
 from html import escape
 
@@ -39,6 +40,41 @@ T = {
                       "heuristic": "Mismo presupuesto, sin IA", "exhaustive": "Exhaustivo (un experimento por nodo)"},
     },
 }
+
+def md(text: str) -> str:
+    """Minimal markdown to HTML for model output (bold, italics, code, lists, paragraphs), escaped first."""
+    text = re.sub(r"\\[()\[\]]", "", text or "")
+    html, items, ordered = [], [], False
+
+    def inline(s: str) -> str:
+        s = escape(s)
+        s = re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", s)
+        s = re.sub(r"`([^`]+)`", r"<code>\1</code>", s)
+        return re.sub(r"(?<!\*)\*([^*\s][^*]*)\*(?!\*)", r"<i>\1</i>", s)
+
+    def flush() -> None:
+        nonlocal items
+        if items:
+            tag = "ol" if ordered else "ul"
+            html.append(f"<{tag}>" + "".join(f"<li>{inline(i)}</li>" for i in items) + f"</{tag}>")
+            items = []
+
+    for raw in text.split("\n"):
+        line = raw.strip()
+        b = re.match(r"^[-*•]\s+(.*)", line)
+        n = re.match(r"^\d+[.)]\s+(.*)", line)
+        if b or n:
+            if items and ordered != bool(n):
+                flush()
+            ordered = bool(n)
+            items.append((b or n).group(1))
+        else:
+            flush()
+            if line:
+                html.append(f"<p>{inline(line.lstrip('#').strip())}</p>")
+    flush()
+    return "".join(html)
+
 
 CSS = """
 body{font-family:Inter,system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1f2a37;margin:0;background:#f6f8fa}
@@ -95,7 +131,7 @@ def render(row, lang: str | None = None) -> str:
                        f"<td>{b['f1']:.2f}</td><td>{b['experiments']}</td></tr>")
         out.append(f"</table><p class='note'>{t['wrong']}: {g['wrong_edges']} · {t['flagged']}: {g['wrong_and_flagged']}/{g['uncertain_flagged']}</p>")
     if result.get("summary"):
-        out.append(f"<h2>{t['summary']}</h2><p class='note'>{e(result['summary'])}</p>")
+        out.append(f"<h2>{t['summary']}</h2><div class='note'>{md(result['summary'])}</div>")
     if proposed:
         out.append(f"<h2>{t['connections']}</h2><table><tr><th>{t['child']}</th><th>{t['parent']}</th><th>{t['verdict']}</th></tr>")
         for c, p, basis in sorted(proposed, key=lambda x: names.get(x[0], "")):
@@ -118,10 +154,10 @@ def render(row, lang: str | None = None) -> str:
     hyps = [ev for ev in events if ev.get("kind") == "hypothesis"]
     if hyps:
         out.append(f"<h2>{t['hyp']}</h2><table><tr><th>{t['hyp']}</th><th>{t['conf']}</th></tr>"
-                   + "".join(f"<tr><td>{e(str(h.get('statement')))}</td><td>{round(float(h.get('confidence', 0)) * 100)}%</td></tr>" for h in hyps)
+                   + "".join(f"<tr><td>{md(str(h.get('statement')))}</td><td>{round(float(h.get('confidence', 0)) * 100)}%</td></tr>" for h in hyps)
                    + "</table>")
     reviews = [ev for ev in events if ev.get("kind") == "review"]
-    out.append(f"<h2>{t['reviews']}</h2>" + ("".join(f"<p class='note'><b>{e(str(r.get('trigger')))}</b><br>{e(str(r.get('advice')))}</p>" for r in reviews) or f"<p>{t['none']}</p>"))
+    out.append(f"<h2>{t['reviews']}</h2>" + ("".join(f"<div class='note'><b>{e(str(r.get('trigger')))}</b>{md(str(r.get('advice')))}</div>" for r in reviews) or f"<p>{t['none']}</p>"))
     if usage.get("by_model"):
         out.append(f"<h2>{t['usage']}</h2><table><tr><th>{t['model']}</th><th>{t['tokens']}</th><th>{t['cost']}</th></tr>")
         for m, u in usage["by_model"].items():

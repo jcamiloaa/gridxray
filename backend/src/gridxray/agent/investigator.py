@@ -131,7 +131,8 @@ class Investigator:
                             for r in tb.engine.history],
         }
         self.emit("review_started", trigger=trigger, reason=reason)
-        resp = self.client.respond(self.cfg.wonder_model, dumps(dossier), instructions=WONDER_INSTRUCTIONS,
+        wonder_rules = WONDER_INSTRUCTIONS + ("\nAnswer in Spanish (node names stay as they are)." if self.language == "es" else "")
+        resp = self.client.respond(self.cfg.wonder_model, dumps(dossier), instructions=wonder_rules,
                                    reasoning_effort=self.cfg.wonder_reasoning_effort)
         self.run.reviews += 1
         self.run.tokens += resp.usage.total_tokens if resp.usage else 0

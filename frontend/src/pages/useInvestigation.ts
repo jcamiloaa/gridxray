@@ -109,7 +109,35 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
     return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus }
   }, [edges, focus, truthEdges])
 
+  /** Found vs real, node by node: the AI's proposed parent against the true one. */
+  const comparison = useMemo(() => {
+    if (!truthEdges || !edges.length || !scenario) return null
+    const adj = new Map<number, number[]>()
+    for (const [a, b] of truthEdges) {
+      adj.set(a, [...(adj.get(a) ?? []), b])
+      adj.set(b, [...(adj.get(b) ?? []), a])
+    }
+    const realParent = new Map<number, number>()
+    const queue = scenario.substations.map((s) => s.id)
+    const seen = new Set(queue)
+    while (queue.length) {
+      const cur = queue.shift()!
+      for (const nxt of adj.get(cur) ?? []) {
+        if (seen.has(nxt)) continue
+        seen.add(nxt)
+        realParent.set(nxt, cur)
+        queue.push(nxt)
+      }
+    }
+    const name = (id: number) => nameOf.get(id) ?? String(id)
+    const rows = edges.map((e) => ({
+      node: name(e.child), ai: name(e.parent), real: realParent.has(e.child) ? name(realParent.get(e.child)!) : '—',
+      ok: realParent.get(e.child) === e.parent, flagged: e.basis === 'uncertain',
+    })).sort((a, b) => a.node.localeCompare(b.node))
+    return { rows, correct: rows.filter((r) => r.ok).length, wrong: rows.filter((r) => !r.ok) }
+  }, [truthEdges, edges, scenario, nameOf])
+
   const experimentsUsed = events.filter((e) => e.kind === 'experiment' && e.accepted).length
   const budget = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
-  return { status, events, overlay, score, error, start, attach, stop, resume, runId, compare, compared: truthEdges !== null, nameOf, experimentsUsed, budget }
+  return { status, events, overlay, score, error, start, attach, stop, resume, runId, compare, comparison, compared: truthEdges !== null, nameOf, experimentsUsed, budget }
 }
