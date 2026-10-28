@@ -71,6 +71,6 @@ def benchmark(plan: list[tuple[Complexity, int, int]], out: Path, wonder: bool =
         rows.append(row)
         out.write_text(json.dumps(rows, indent=1))
         g = row["gridxray"]
-        print(f"  GridXray F1={g['f1'] if g else None} exp={g['experiments'] if g else '-'} | "
-              f"exhaustive F1={row['exhaustive']['f1']} exp={row['exhaustive']['experiments']} | {row['seconds']}s", flush=True)
+        print(f"  GridXray {g['correct_edges']}/{g['total_edges']} F1={g['f1']} wrong={g['wrong_edges']} "
+              f"flagged={g['wrong_and_flagged']} | {row['seconds']}s" if g else "  no result", flush=True)
     return rows

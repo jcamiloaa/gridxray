@@ -26,7 +26,7 @@ def main() -> None:
     inv.add_argument("--effort", default=None, help="Spark reasoning effort (minimal..max)")
     inv.add_argument("--log", default=None, help="Write the full event log to this JSON file")
     sub.add_parser("evidence", help="Run the test suite and store results/tests.json for the Evidence page")
-    bench = sub.add_parser("benchmark", help="Run GridXray and the baselines over several scenarios")
+    bench = sub.add_parser("benchmark", help="Run GridXray over several scenarios and score it against the real network")
     bench.add_argument("--plan", default="easy:1-3:8,medium:1-3:15",
                        help="level:seeds:budget,... e.g. easy:1-3:8,medium:1-3:15,hard:1-2:30")
     bench.add_argument("--out", default="benchmark.json")
