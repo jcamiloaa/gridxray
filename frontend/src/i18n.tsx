@@ -127,6 +127,22 @@ const ES: Record<string, string> = {
   'This browser cannot compute SHA-256 here (needs HTTPS or localhost).': 'Este navegador no puede calcular SHA-256 aquí (requiere HTTPS o localhost).',
   'The topology is sealed before every investigation': 'La topología se sella antes de cada investigación',
   'Physics (non-AI)': 'Física (sin IA)', 'Traditional AI': 'IA tradicional', 'Geography (non-AI)': 'Geografía (sin IA)', 'Meta AI': 'IA de Meta',
+  'Why?': '¿Por qué?',
+  'reject.voltage_low': 'aplicar {what} bajaría el voltaje de algún centro de transformación a {value} pu, por debajo del mínimo seguro de {threshold} pu (−10 % del nominal). Habría clientes con bajo voltaje: un operador real nunca haría esta prueba.',
+  'reject.voltage_high': 'aplicar {what} subiría el voltaje de algún centro a {value} pu, por encima del máximo seguro de {threshold} pu (+10 % del nominal). Podría dañar equipos de los clientes.',
+  'reject.line_overload': 'aplicar {what} cargaría una línea al {value} % de su capacidad (máximo {threshold} %). El cable se sobrecalentaría y la protección podría disparar, dejando clientes sin servicio.',
+  'reject.deenergized': 'aplicar {what} dejaría {value} centros de transformación sin energía.',
+  'reject.not_converged': 'la red no podría alimentar esa carga: el flujo de carga no converge (colapso de voltaje).',
+  'reject.free': 'El simulador revisa los límites de operación antes de cada experimento; los rechazados no gastan presupuesto y no revelan dónde está el problema, así el cableado sigue oculto.',
+  'reject.safe': 'Carga segura estimada: ~{kw} kW.',
+  'What is this experiment?': '¿En qué consiste este experimento?',
+  'exp.load': 'Durante unos segundos se conectó en el simulador una carga extra de {kw} kW en {node} (como si se encendieran unas {homes} viviendas) y se comparó el voltaje de todos los medidores antes y después. Luego la carga se retira: la red queda como estaba.',
+  'exp.unit': 'mpu/MW = cuánto baja el voltaje, en milésimas del nominal, por cada MW agregado. Cuanto más camino comparte un centro con {node} desde la subestación, más baja. {node} bajó {own} mpu/MW: esa es su "profundidad eléctrica".',
+  'exp.below': 'Lo que se aprendió: {nodes} bajaron lo mismo que {node}, así que están conectados después de {node} (aguas abajo, en la misma rama).',
+  'exp.far': 'Casi no se movieron {nodes}: están en otras ramas, que se separan cerca de la subestación.',
+  'exp.switch': 'Se operó temporalmente el interruptor #{id} (se abrió o cerró) y se midió el cambio de voltaje en todos los medidores; después volvió a su estado.',
+  'exp.switch.moved': 'Cambiaron {nodes}: el interruptor está conectado y su estado real influye en cómo se alimentan esos centros.',
+  'exp.switch.none': 'Ningún medidor cambió de forma apreciable: operar este interruptor no altera cómo se alimenta la red.',
   // guide
   'How to use the workspace': 'Cómo usar el área de trabajo',
 }
@@ -143,6 +159,20 @@ const EN_LONG: Record<string, string> = {
   'reveal.info': 'Shows the true wiring that the AI must discover: overhead lines, underground cables, switches, reclosers, fuses, capacitors and solar plants. A spoiler, useful to explore the scenario.',
   'investigate.info': 'Muse Spark investigates the hidden wiring: it forms hypotheses, runs virtual experiments on the physics simulator and reconstructs the network. Muse Wonder reviews the evidence when Spark is stuck. Each run uses real Meta models and takes a few minutes.',
   'budget.info': 'How many virtual experiments the AI may run. Probing every substation would need one per substation; GridXray combines experiments with passive data to need fewer.',
+  'reject.voltage_low': 'applying {what} would drop the voltage of some substation to {value} pu, below the safe minimum of {threshold} pu (−10 % of nominal). Customers would get low voltage: a real operator would never run this test.',
+  'reject.voltage_high': 'applying {what} would raise the voltage of some substation to {value} pu, above the safe maximum of {threshold} pu (+10 % of nominal). It could damage customer equipment.',
+  'reject.line_overload': 'applying {what} would load a line to {value}% of its rating (maximum {threshold}%). The cable would overheat and protection could trip, cutting customers off.',
+  'reject.deenergized': 'applying {what} would leave {value} secondary substations without power.',
+  'reject.not_converged': 'the network could not supply that load: the power flow does not converge (voltage collapse).',
+  'reject.free': 'The simulator checks operating limits before every experiment; rejected ones cost no budget and do not reveal where the problem is, so the wiring stays hidden.',
+  'reject.safe': 'Estimated safe size: ~{kw} kW.',
+  'exp.load': 'For a few seconds the simulator connected an extra {kw} kW load at {node} (roughly {homes} homes switching on) and compared every meter\'s voltage before and after. Then the load is removed: the network is left as it was.',
+  'exp.unit': 'mpu/MW = how much the voltage drops, in thousandths of nominal, per MW added. The more of its path from the substation a substation shares with {node}, the more it drops. {node} dropped {own} mpu/MW: that is its "electrical depth".',
+  'exp.below': 'What it showed: {nodes} dropped as much as {node}, so they are connected after {node} (downstream, on the same branch).',
+  'exp.far': '{nodes} barely moved: they are on other branches that split off near the substation.',
+  'exp.switch': 'Switch #{id} was operated temporarily (opened or closed) and the voltage change was measured at every meter; then it went back to its state.',
+  'exp.switch.moved': '{nodes} changed: the switch is connected and its real state affects how those substations are fed.',
+  'exp.switch.none': 'No meter changed noticeably: operating this switch does not change how the network is fed.',
   'reveal.note': 'Lines, cables and equipment as they really are. The AI never sees this view.',
   'hidden.note': 'You see where equipment is, not how it is wired: that is what the AI will discover.',
   'kiosk.note': 'Each kiosk stands for the homes and shops it supplies. Click one to read its meter.',
@@ -177,7 +207,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [])
   const t = useCallback((key: string, vars?: Record<string, string | number>) => {
     let s = (lang === 'es' ? ES[key] : undefined) ?? EN_LONG[key] ?? key
-    for (const [k, v] of Object.entries(vars ?? {})) s = s.replace(`{${k}}`, String(v))
+    for (const [k, v] of Object.entries(vars ?? {})) s = s.split(`{${k}}`).join(String(v))
     return s
   }, [lang])
   const value = useMemo(() => ({ lang, setLang, t }), [lang, setLang, t])

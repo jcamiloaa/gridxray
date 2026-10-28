@@ -27,6 +27,8 @@ class ExperimentRecord:
     # node id -> voltage change in pu (after - before); None when the meter gave no data
     delta_vm: dict[int, float | None] = field(default_factory=dict)
     delta_p_kw: float = 0.0
+    # why it was rejected, as data: {"limit", "value", "threshold", "safe_kw"?}; None when accepted
+    rejection: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -53,19 +55,50 @@ class ExperimentEngine:
                     samples[n].append(r["vm_pu"])
         return {n: (float(np.mean(v)) if v else None) for n, v in samples.items()}
 
-    def _limits_ok(self) -> str | None:
+    def _state(self) -> tuple[float, float]:
+        """Lowest node voltage and highest line loading of the solved network (operating margins)."""
+        net = self.s.net
+        loading = net.res_line.loading_percent.dropna()
+        return float(net.res_bus.vm_pu[self.s.node_ids].min()), float(loading.max()) if len(loading) else 0.0
+
+    def _limits_ok(self) -> tuple[str, dict] | None:
+        """The first operating limit the experiment would break: a message and the same reason as data.
+
+        Only margins are reported (worst voltage, worst loading), never which line or where: that
+        would hint at the hidden wiring.
+        """
         net = self.s.net
         if not net.converged:
-            return "the power flow did not converge"
+            return "the power flow did not converge", {"limit": "not_converged"}
         vm = net.res_bus.vm_pu[self.s.node_ids]
         if vm.isna().any():
-            return f"{int(vm.isna().sum())} secondary substations would be de-energized"
-        if (vm < V_MIN).any() or (vm > V_MAX).any():
-            return f"voltage would leave the {V_MIN}-{V_MAX} pu band (min {vm.min():.3f}, max {vm.max():.3f})"
+            n = int(vm.isna().sum())
+            return f"{n} secondary substations would be de-energized", {"limit": "deenergized", "value": n}
+        if (vm < V_MIN).any():
+            return (f"voltage would leave the {V_MIN}-{V_MAX} pu band (min {vm.min():.3f}, max {vm.max():.3f})",
+                    {"limit": "voltage_low", "value": round(float(vm.min()), 4), "threshold": V_MIN})
+        if (vm > V_MAX).any():
+            return (f"voltage would leave the {V_MIN}-{V_MAX} pu band (min {vm.min():.3f}, max {vm.max():.3f})",
+                    {"limit": "voltage_high", "value": round(float(vm.max()), 4), "threshold": V_MAX})
         loading = net.res_line.loading_percent.dropna()
         if len(loading) and loading.max() > MAX_LOADING:
-            return f"a line would be loaded to {loading.max():.0f}% of its rating"
+            return (f"a line would be loaded to {loading.max():.0f}% of its rating",
+                    {"limit": "line_overload", "value": round(float(loading.max()), 1), "threshold": MAX_LOADING})
         return None
+
+    @staticmethod
+    def _safe_kw(before: tuple[float, float], after: tuple[float, float], delta_kw: float) -> float | None:
+        """Linear estimate of the largest load step that keeps every limit (voltage and loading), 10 % margin."""
+        (v0, l0), (v1, l1) = before, after
+        shares = []
+        if v1 < v0:
+            shares.append((v0 - V_MIN) / (v0 - v1))
+        if l1 > l0:
+            shares.append((MAX_LOADING - l0) / (l1 - l0))
+        if not shares:
+            return None
+        safe = abs(delta_kw) * min(shares) * 0.9
+        return round(safe / 50) * 50 if safe >= 50 else 0.0
 
     def _record(self, action: dict, ok: bool, msg: str, **kw) -> ExperimentRecord:
         rec = ExperimentRecord(id=len(self.history) + 1, action=action, accepted=ok, message=msg,
@@ -95,16 +128,22 @@ class ExperimentEngine:
         r = repeats or self.repeats
         self.s.solve(self.s.hour)
         before = self._averaged_vm(r)
+        margins = self._state()
         idx = pp.create_load(self.s.net, node, p_mw=delta_kw / 1000, q_mvar=delta_kw * 0.33 / 1000)
         try:
             self._solve()
             problem = self._limits_ok()
+            stressed = self._state() if problem and self.s.net.converged else None
             after = None if problem else self._averaged_vm(r)
         finally:
             self.s.net.load.drop(idx, inplace=True)
             self.s.solve(self.s.hour)
         if problem:
-            return self._record(action, False, f"rejected: {problem}")
+            msg, reason = problem
+            safe = self._safe_kw(margins, stressed, delta_kw) if stressed and reason["limit"] != "deenergized" else None
+            if safe is not None:
+                reason["safe_kw"] = safe
+            return self._record(action, False, f"rejected: {msg}", rejection=reason)
         deltas = {n: (None if before[n] is None or after[n] is None else round(after[n] - before[n], 6))
                   for n in self.s.metered}
         return self._record(action, True, "ok", delta_vm=deltas, delta_p_kw=delta_kw)
@@ -132,7 +171,7 @@ class ExperimentEngine:
             sw.at[switch_id, "closed"] = state
             self.s.solve(self.s.hour)
         if problem:
-            return self._record(action, False, f"rejected: {problem}")
+            return self._record(action, False, f"rejected: {problem[0]}", rejection=problem[1])
         deltas = {n: (None if before[n] is None or after[n] is None else round(after[n] - before[n], 6))
                   for n in self.s.metered}
         verb = "closed" if not state else "opened"

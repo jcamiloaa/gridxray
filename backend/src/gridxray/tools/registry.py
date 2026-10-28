@@ -55,7 +55,8 @@ TOOLS: list[dict] = [
         "perturb_load adds delta_kw at a node and returns every meter's voltage change per MW: "
         "nodes sharing more of the path from the substation drop more. toggle_switch temporarily "
         "operates a switch (by id) and returns the voltage changes. Experiments that would break "
-        "operating limits are rejected for free.",
+        "operating limits are rejected for free; the rejection says which limit (low voltage, line overload) and "
+        "a safe_kw size to retry with.",
         {"kind": {"type": "string", "enum": ["perturb_load", "toggle_switch"]},
          "node": {"type": "string", "description": "Node name, for perturb_load."},
          "delta_kw": {"type": "number", "description": "Load change in kW (±3000). Bigger = clearer signal."},
@@ -214,6 +215,8 @@ class ToolBox:
             raise ToolError(f"unknown experiment kind {kind!r}")
         out: dict = {"experiment": rec.id, "accepted": rec.accepted, "message": rec.message,
                      "budget_remaining": self.engine.remaining}
+        if rec.rejection:
+            out["rejection"] = rec.rejection  # which limit, by how much, and a safe size to retry with
         if rec.accepted:
             scale = -1000 / rec.delta_p_kw if rec.delta_p_kw else -1.0
             label = "drop_pu_per_mw" if rec.delta_p_kw else "delta_pu"

@@ -498,3 +498,8 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .btn-stop:hover { background: #b93434; }
 .btn-stop--sm { padding: 4px 10px; font-size: .78rem; border-radius: 8px; }
 .run-pill--stopped { background: #eceff3; color: #5b6673; }
+.tl__why p { margin: 2px 0; }
+.tl__why small { display: block; color: var(--muted); margin-bottom: 2px; }
+.tl__what { margin: 4px 0; font-size: .82rem; }
+.tl__what summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+.tl__what p { margin: 4px 0; }

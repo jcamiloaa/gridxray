@@ -150,3 +150,16 @@ def test_batch_fills_a_missing_load_size():
     out = tb.call("run_experiments", {"experiments": [{"kind": "perturb_load", "node": node}, {"kind": "perturb_load"}]})
     assert out["results"][0]["accepted"] and out["results"][0]["args"]["delta_kw"] > 0
     assert not out["results"][1]["accepted"] and out["results"][1]["budget_remaining"] == 2
+
+
+def test_rejection_explains_the_limit_and_a_safe_size_works():
+    """CIGRE MV is heavily loaded: +2000 kW breaks a limit; the reason names no line or node, and safe_kw passes."""
+    from gridxray.lab import Reference, load_reference
+
+    tb = ToolBox(load_reference(Reference.CIGRE_MV, 0), budget=5)
+    out = tb.call("run_experiment", {"kind": "perturb_load", "node": "SS-004", "delta_kw": 2000})
+    r = out["rejection"]
+    assert not out["accepted"] and out["budget_remaining"] == 5
+    assert r["limit"] in {"voltage_low", "line_overload"} and r["value"] and 0 < r["safe_kw"] < 2000
+    assert set(r) <= {"limit", "value", "threshold", "safe_kw"}  # margins only: nothing that locates the wiring
+    assert tb.call("run_experiment", {"kind": "perturb_load", "node": "SS-004", "delta_kw": r["safe_kw"]})["accepted"]

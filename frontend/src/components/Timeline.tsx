@@ -19,9 +19,59 @@ const TOOL_LABEL: Record<string, string> = {
   run_experiments: 'Runs a batch of experiments',
 }
 
+interface Rejection { limit: string; value?: number; threshold?: number; safe_kw?: number }
+
+/** Plain-language reason for a rejected experiment: which operating limit, by how much, and a safe size. */
+function WhyRejected({ e, what }: { e: RunEvent; what: string }) {
+  const { t } = useI18n()
+  const r = e.rejection as Rejection | undefined
+  if (!r) return <p>{String(e.message ?? e.error ?? '')}</p>
+  const vars = { what, value: r.value ?? '', threshold: r.threshold ?? '' }
+  const key = `reject.${r.limit}`
+  return (
+    <div className="tl__why">
+      <p><b>{t('Why?')}</b> {t(key, vars) === key ? String(e.message) : t(key, vars)}</p>
+      <small>{t('reject.free')}{r.safe_kw ? ` ${t('reject.safe', { kw: r.safe_kw })}` : ''}</small>
+    </div>
+  )
+}
+
+const list = (names: string[]) => names.slice(0, 5).join(', ') + (names.length > 5 ? ` (+${names.length - 5})` : '')
+
+/** What the experiment physically was and what it taught, in plain language. */
+function WhatItIs({ e, args }: { e: RunEvent; args: { kind: string; node?: string; delta_kw?: number; switch_id?: number } }) {
+  const { t } = useI18n()
+  if (args.kind !== 'perturb_load') {
+    const delta = Object.entries((e.delta_pu ?? {}) as Record<string, number>)
+    const moved = delta.filter(([, v]) => Math.abs(v) > 0.0005).map(([n]) => n)
+    return (
+      <details className="tl__what"><summary>{t('What is this experiment?')}</summary>
+        <p>{t('exp.switch', { id: args.switch_id ?? '' })}</p>
+        <p>{moved.length ? t('exp.switch.moved', { nodes: list(moved) }) : t('exp.switch.none')}</p>
+      </details>
+    )
+  }
+  const drops = (e.drop_pu_per_mw ?? {}) as Record<string, number>
+  const node = args.node ?? ''
+  const own = drops[node]
+  const max = Math.max(0, ...Object.values(drops))
+  const others = Object.entries(drops).filter(([n]) => n !== node)
+  const below = own ? others.filter(([, v]) => v >= own * 0.97).map(([n]) => n) : []
+  const far = others.filter(([, v]) => v < max * 0.35).map(([n]) => n)
+  const kw = Math.abs(args.delta_kw ?? 0)
+  return (
+    <details className="tl__what"><summary>{t('What is this experiment?')}</summary>
+      <p>{t('exp.load', { kw, node, homes: Math.round(kw / 1.5) })}</p>
+      <p>{t('exp.unit', { own: own ? (own * 1000).toFixed(1) : '—', node })}</p>
+      {below.length > 0 && <p>{t('exp.below', { nodes: list(below), node })}</p>}
+      {far.length > 0 && <p>{t('exp.far', { nodes: list(far) })}</p>}
+    </details>
+  )
+}
+
 function Experiment({ e }: { e: RunEvent }) {
   const { t } = useI18n()
-  const args = e.args as { kind: string; node?: string; delta_kw?: number; switch_id?: number; repeats?: number }
+  const args = (e.args ?? {}) as { kind: string; node?: string; delta_kw?: number; switch_id?: number; repeats?: number }
   const drops = Object.entries((e.drop_pu_per_mw ?? {}) as Record<string, number>).slice(0, 3)
   const what = args.kind === 'perturb_load'
     ? `${(args.delta_kw ?? 0) > 0 ? '+' : ''}${args.delta_kw} kW ${t('at')} ${args.node}`
@@ -32,9 +82,12 @@ function Experiment({ e }: { e: RunEvent }) {
       <div>
         <b>{t('Experiment')} {e.accepted ? `#${e.experiment}` : `(${t('rejected')})`} · {what}</b>
         {e.accepted ? (
-          <p>{drops.length ? `${t('Strongest response')}: ${drops.map(([n, v]) => `${n} ${(v * 1000).toFixed(2)}`).join(', ')} mpu/MW` : String(e.message)}</p>
-        ) : <p>{String(e.message)}</p>}
-        <small>{t('Budget left')}: {String(e.budget_remaining)}</small>
+          <>
+            <p>{drops.length ? `${t('Strongest response')}: ${drops.map(([n, v]) => `${n} ${(v * 1000).toFixed(2)}`).join(', ')} mpu/MW` : String(e.message)}</p>
+            <WhatItIs e={e} args={args} />
+          </>
+        ) : <WhyRejected e={e} what={what} />}
+        <small>{t('Budget left')}: {String(e.budget_remaining ?? '—')}</small>
       </div>
     </li>
   )
