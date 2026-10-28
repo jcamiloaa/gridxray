@@ -170,7 +170,7 @@ export function CrewLayer({ crew, pos }: { crew: Crew; pos: Map<number, Vec2> })
           <ringGeometry args={[0.15, 0.22, 32]} />
           <meshBasicMaterial color="#ffffff" transparent depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
-        <Html position={[0, 1.6, 0]} center distanceFactor={14} zIndexRange={[20, 0]}>
+        <Html position={[0, 1.6, 0]} center zIndexRange={[5, 0]}>
           <div ref={label} className={`crew-tag crew-tag--${crew.stage}${crew.outdated ? ' is-outdated' : ''}`}>
             <span className="crew-tag__icon">{crew.stage === 'photo' ? '📷' : crew.stage === 'segment' ? '✂' : crew.stage === 'read' ? '👁' : crew.outdated ? '⚠' : '✓'}</span>
             {text}
