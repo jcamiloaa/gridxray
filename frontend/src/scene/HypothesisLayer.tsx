@@ -2,6 +2,7 @@ import { Line } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { useRef } from 'react'
 import * as THREE from 'three'
+import { CrewLayer } from './CrewLayer'
 import { route, type Vec2 } from './layout'
 import type { Overlay } from './model'
 
@@ -55,6 +56,7 @@ export function HypothesisLayer({ overlay, pos }: { overlay: Overlay; pos: Map<n
           })}
         </>
       )}
+      {overlay.crew && <CrewLayer key={overlay.crew.visit} crew={overlay.crew} pos={pos} />}
     </group>
   )
 }

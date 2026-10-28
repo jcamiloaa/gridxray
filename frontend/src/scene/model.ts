@@ -109,6 +109,8 @@ export interface Overlay {
   edges: { child: number; parent: number; status: 'measured' | 'inferred' | 'proposed' | 'uncertain' | 'correct' | 'wrong' }[]
   missed?: [number, number][] // true connections the AI did not find (shown after reveal)
   focus?: { node: number; drops: Record<number, number> } // last load experiment
+  // field crew on its way to / working at a site ("dispatch crew")
+  crew?: { visit: number; node: number; name: string; from?: number; stage: 'photo' | 'segment' | 'read' | 'done'; outdated?: boolean }
 }
 
 /** A model whose edges are the AI's hypothesis, for the single-line diagram. */

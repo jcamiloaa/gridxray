@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
+import { useI18n } from '../i18n'
+import { along, SPEED, streetPath } from './crewPath'
 import type { CalloutSpec } from './GridScene'
 import { layout, route, type Vec2 } from './layout'
-import type { GridModel } from './model'
+import type { GridModel, Overlay } from './model'
 import { palette, voltageColor } from './palette'
 
 type V3 = [number, number, number]
@@ -13,11 +15,26 @@ interface Box { c: V3; w: number; d: number; h: number; wall: string; roof: stri
  * Orbit by dragging, zoom with the wheel; same callouts and selection as the WebGL scene.
  */
 export function Basic3D({ model, selected = null, onSelect, callouts = [], activeCallout = null, onCalloutHover,
-  showLabels = true, autoRotate = false, children }: {
+  showLabels = true, autoRotate = false, children, overlay }: {
   model: GridModel; selected?: number | null; onSelect?: (id: number | null) => void
   callouts?: CalloutSpec[]; activeCallout?: number | null; onCalloutHover?: (n: number | null) => void
-  showLabels?: boolean; autoRotate?: boolean; children?: ReactNode
+  showLabels?: boolean; autoRotate?: boolean; children?: ReactNode; overlay?: Overlay
 }) {
+  const { t } = useI18n()
+  // the field crew, read by the render loop: truck on the streets, then the photo flash at the site
+  const crew = useRef<{ c: NonNullable<Overlay['crew']>; t0: number; texts: Record<string, string> } | null>(null)
+  const c = overlay?.crew
+  if (!c) crew.current = null
+  else if (crew.current?.c.visit !== c.visit || crew.current.c.stage !== c.stage || crew.current.c.outdated !== c.outdated) {
+    crew.current = {
+      c, t0: crew.current?.c.visit === c.visit ? crew.current.t0 : performance.now(),
+      texts: {
+        drive: t('Crew driving to {node}').split('{node}').join(c.name), photo: t('Taking the photo · Muse Image'),
+        segment: t('Segmenting the equipment · SAM 3.1'), read: t('Reading the switch · Muse Spark'),
+        done: c.outdated ? t('Record outdated') : t('Field visit done'),
+      },
+    }
+  }
   const canvas = useRef<HTMLCanvasElement>(null)
   const badges = useRef<(HTMLButtonElement | null)[]>([])
   const view = useRef({ yaw: -0.75, pitch: 0.62, zoom: 1, spin: autoRotate, active: activeCallout, selected, hover: false })
@@ -222,6 +239,56 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           ctx.fillStyle = palette.ink
           ctx.fillText(n.name, px, py + 2)
         }
+      }
+
+      const cr = crew.current
+      const site = cr && scene.pos.get(cr.c.node)
+      if (cr && site) {
+        const path = streetPath(scene.pos.get(cr.c.from ?? -1), site)
+        const { at: [tx, tz], heading, done } = along(path, cr.c.stage === 'done' ? 1e9 : ((now - cr.t0) / 1000) * SPEED)
+        // truck: an oriented box with a blinking beacon
+        const dx = Math.sin(heading) * 1.0
+        const dz = Math.cos(heading) * 1.0
+        const ox = Math.cos(heading) * 0.55
+        const oz = -Math.sin(heading) * 0.55
+        const foot: V3[] = [[tx - dx - ox, 0.6, tz - dz - oz], [tx + dx - ox, 0.6, tz + dz - oz], [tx + dx + ox, 0.6, tz + dz + oz], [tx - dx + ox, 0.6, tz - dz + oz]]
+        face(foot.map(project), '#f4f6f8', '#f26b1d')
+        const [bx, by] = project([tx + dx * 0.6, 0.85, tz + dz * 0.6])
+        ctx.beginPath(); ctx.arc(bx, by, Math.max(2, s * 0.14), 0, 7)
+        ctx.fillStyle = Math.sin(now / 80) > 0 ? '#ffb020' : '#8a6a2a'; ctx.fill()
+        let label = cr.texts.drive
+        let color = '#f26b1d'
+        if (done) {
+          const wx = site[0] + 0.25
+          const wz = site[1] - 0.6
+          const [px, py] = project([wx, 0, wz])
+          const [hx, hy] = project([wx, 1.4, wz])
+          ctx.strokeStyle = '#ff7a1a'; ctx.lineWidth = Math.max(3, s * 0.28)
+          ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(hx, hy); ctx.stroke()
+          ctx.beginPath(); ctx.arc(hx, hy, Math.max(3, s * 0.2), 0, 7); ctx.fillStyle = '#ffd21f'; ctx.fill()
+          const k = (now / 1100) % 1
+          if (cr.c.stage === 'photo' && k < 0.15) {
+            const [fx, fy] = project([site[0], 1, site[1]])
+            ctx.beginPath(); ctx.arc(fx, fy, s * (0.6 + k * 8), 0, 7)
+            ctx.fillStyle = `rgba(255, 255, 255, ${0.9 - k * 5})`; ctx.fill()
+          }
+          if (cr.c.stage === 'segment' || cr.c.stage === 'read') {
+            const y = cr.c.stage === 'segment' ? ((Math.sin(now / 330) + 1) / 2) * 1.6 : 0.8
+            const ring: V3[] = [[site[0] - 0.9, y, site[1] - 0.8], [site[0] + 0.9, y, site[1] - 0.8], [site[0] + 0.9, y, site[1] + 0.8], [site[0] - 0.9, y, site[1] + 0.8]]
+            face(ring.map(project), cr.c.stage === 'segment' ? 'rgba(24, 195, 230, .25)' : 'rgba(124, 77, 219, .2)',
+              cr.c.stage === 'segment' ? '#18c3e6' : '#7c4ddb')
+          }
+          label = cr.texts[cr.c.stage]
+          color = { photo: '#f26b1d', segment: '#0f9fbf', read: '#7c4ddb', done: cr.c.outdated ? '#d64545' : '#17a673' }[cr.c.stage]
+        }
+        const [lx2, ly2] = done ? project([site[0], 3.8, site[1] - 0.6]) : project([tx, 1.6, tz])
+        ctx.font = '600 12px Inter, system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        const tw = ctx.measureText(label).width + 18
+        ctx.fillStyle = color
+        ctx.beginPath(); ctx.roundRect(lx2 - tw / 2, ly2 - 11, tw, 22, 11); ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.fillText(label, lx2, ly2 + 4)
       }
 
       // Callout leaders on the canvas, badges as DOM so hover works like the WebGL view.

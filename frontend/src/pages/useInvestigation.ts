@@ -23,6 +23,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   const [events, setEvents] = useState<RunEvent[]>([])
   const [edges, setEdges] = useState<CandidateEdge[]>([])
   const [focus, setFocus] = useState<Overlay['focus']>()
+  const [crew, setCrew] = useState<Overlay['crew']>()
   const [score, setScore] = useState<RunScore | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [truthEdges, setTruthEdges] = useState<[number, number][] | null>(null)
@@ -36,12 +37,13 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
     for (const s of scenario?.substations ?? []) m.set(s.name, s.id)
     return m
   }, [scenario])
+  const rootId = scenario?.substations[0]?.id
   const nameOf = useMemo(() => new Map([...idOf].map(([k, v]) => [v, k])), [idOf])
 
   // a new grid resets everything
   useEffect(() => {
     close.current()
-    setStatus('idle'); setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
+    setStatus('idle'); setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
   }, [scenario])
   useEffect(() => () => close.current(), [])
 
@@ -55,17 +57,30 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
         setFocus({ node: idOf.get(args.node)!, drops: Object.fromEntries(Object.entries(drops).map(([k, v]) => [idOf.get(k) ?? -1, v])) })
       }
     }
+    // the field crew drives to the site and works there while the photo, SAM and the reading run
+    if (e.kind === 'crew_dispatched' && idOf.has(String(e.node))) {
+      setCrew({ visit: Number(e.visit), node: idOf.get(String(e.node))!, name: String(e.node), from: rootId, stage: 'photo' })
+    }
+    if (e.kind === 'crew_stage') {
+      setCrew((c) => (c && c.visit === Number(e.visit) ? { ...c, stage: e.stage as 'photo' | 'segment' | 'read' } : c))
+    }
+    if (e.kind === 'field_reading') {
+      const outdated = String(e.record_check ?? '').startsWith('RECORD OUTDATED')
+      setCrew((c) => (c && c.visit === Number(e.visit) ? { ...c, stage: 'done', outdated } : c))
+    }
+    if (e.kind === 'experiment' || (e.kind === 'error' && String(e.message ?? '').startsWith('Field visit'))) setCrew(undefined)
     if (e.kind === 'done') {
       setStatus(e.status === 'done' || e.status === 'stopped' ? e.status : 'failed')
       setScore((e.score as RunScore) ?? null)
       setFocus(undefined)
+      setCrew(undefined)
     }
-  }, [idOf])
+  }, [idOf, rootId])
 
   const start = useCallback(async (budget: number, language = 'en') => {
     if (!generated) return
     close.current()
-    setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
+    setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     try {
       const { id } = await startInvestigation(generated.source, generated.seed, budget, language)
       setRunId(id)
@@ -80,7 +95,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   /** Follow a run that is already going (e.g. after a page reload). */
   const attach = useCallback((id: string) => {
     close.current()
-    setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
+    setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     setRunId(id)
     setStatus('running')
     close.current = streamInvestigation(id, onEvent, () => setError('Lost the live connection to the investigation.'))
@@ -120,7 +135,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   }, [generated, events, runId])
 
   const overlay = useMemo<Overlay | undefined>(() => {
-    if (!edges.length) return undefined
+    if (!edges.length) return crew ? { edges: [], crew } : undefined
     if (truthEdges) {
       const real = new Set(truthEdges.map(([a, b]) => pairKey(a, b)))
       const proposed = new Set(edges.map((e) => pairKey(e.child, e.parent)))
@@ -129,8 +144,8 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
         missed: truthEdges.filter(([a, b]) => !proposed.has(pairKey(a, b))),
       }
     }
-    return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus }
-  }, [edges, focus, truthEdges])
+    return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus, crew }
+  }, [edges, focus, crew, truthEdges])
 
   /** Found vs real, node by node: the AI's proposed parent against the true one. */
   const comparison = useMemo(() => {
