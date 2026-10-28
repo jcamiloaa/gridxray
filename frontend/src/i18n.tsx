@@ -113,6 +113,8 @@ const ES: Record<string, string> = {
   'Traditional AI: clusters 24 h meter correlations into feeders and a tree': 'IA tradicional: agrupa las correlaciones de 24 h de los medidores en alimentadores y un árbol',
   'Geography: builds a prior from GIS blocks and voltages': 'Geografía: arma una hipótesis previa con las manzanas del GIS y los voltajes',
   'Ensemble: compares physics, correlation, geography and Meta AI': 'Ensamble: compara física, correlación, geografía e IA de Meta',
+  STOP: 'DETENER', 'Stops the investigation now, wherever it is': 'Detiene la investigación ya, esté donde esté',
+  'Runs a batch of experiments': 'Corre un lote de experimentos',
   'Asks Muse Wonder to infer the topology from the raw data': 'Pide a Muse Wonder inferir la topología a partir de los datos crudos',
   'Against the real network': 'Contra la red real', 'Scored against the real network by an independent checker with no AI involved.': 'Puntuado contra la red real por un verificador independiente, sin IA.',
   'real connections recovered': 'conexiones reales recuperadas', 'Real connections recovered': 'Conexiones reales recuperadas',

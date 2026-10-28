@@ -44,7 +44,7 @@ export function RunsDrawer({ onOpen, onClose }: { onOpen: (r: RunSummary) => voi
               <div className="row">
                 <button onClick={() => onOpen(r)}>{t('Open')}</button>
                 {r.status !== 'running' && <a className="btn-link" href={`/api/investigations/${r.id}/report`} target="_blank" rel="noreferrer">{t('Report')}</a>}
-                {r.status === 'running' && <button onClick={() => act(() => stopRun(r.id))}>{t('Stop')}</button>}
+                {r.status === 'running' && <button className="btn-stop btn-stop--sm" onClick={() => act(() => stopRun(r.id))}>■ {t('STOP')}</button>}
                 {(r.status === 'failed' || r.status === 'stopped') && (
                   <button className="btn-primary" onClick={() => act(async () => { await resumeRun(r.id); onOpen({ ...r, status: 'running' }) })}>{t('Resume')}</button>
                 )}

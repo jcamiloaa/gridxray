@@ -1,6 +1,7 @@
 """Orchestrates the investigation: Muse Spark runs the tool loop, Muse Wonder reviews on escalation."""
 
 import json
+import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -19,7 +20,9 @@ from gridxray.tools.registry import ToolError, dumps
 MAX_RECOVERIES = 3  # times the conversation may be rebuilt after the server drops it
 STALL_STEPS = 8  # turns without an accepted experiment before Wonder is called in
 UNCERTAIN_REVIEW_RATIO = 0.3
-MIDPOINT_INFERRED_RATIO = 0.35  # unconfirmed share at half budget that calls Wonder in  # share of uncertain edges that triggers a review before closing
+MIDPOINT_INFERRED_RATIO = 0.35  # unconfirmed share at half budget that calls Wonder in
+META_WAIT_SECONDS = 150  # how long submit_result waits for Wonder's background inference
+AUTO_TOOLS = ("get_overview", "passive_correlation", "geographic_prior", "consensus", "suggest_experiments")
 
 
 @dataclass
@@ -67,6 +70,8 @@ class Investigator:
         self.language = language
         self.t0 = time.perf_counter() - t_offset
         self.resumed_from: list[dict] | None = None
+        self._meta_thread: threading.Thread | None = None
+        self._lock = threading.Lock()  # usage is updated by Spark's loop and by Wonder's background inference
 
     def instructions(self) -> str:
         if self.language == "es":
@@ -101,6 +106,12 @@ class Investigator:
                 tb.notes.append({"statement": e.get("statement"), "confidence": e.get("confidence"), "nodes": e.get("nodes", [])})
             elif kind == "review":
                 self.run.reviews += 1
+            elif kind == "meta_inference" and e.get("edges"):
+                from gridxray.tools.reconstruct import Candidate
+
+                tb.meta_tree = Candidate({x["child"]: x["parent"] for x in e["edges"]},
+                                         {x["child"]: x["basis"] for x in e["edges"]})
+                self._meta_thread = threading.Thread()  # already done: never start it again
             elif kind == "usage":
                 self.run.usage = {m: {k: v for k, v in u.items() if k != "cost_usd"} for m, u in e.get("by_model", {}).items()}
         self.run.steps = sum(1 for e in events if e.get("kind") in ("message", "reasoning"))
@@ -113,6 +124,13 @@ class Investigator:
         self.run.events.append(ev)
         if self.on_event:
             self.on_event(ev)
+
+    def add_usage(self, model: str, usage: Any) -> None:
+        with self._lock:
+            self.run.tokens += usage.total_tokens if usage else 0
+            add_usage(self.run.usage, model, usage)
+            summary = self.run.usage_summary
+        self.emit("usage", **summary)
 
     # ------------------------------------------------------------ Muse Wonder
 
@@ -135,9 +153,7 @@ class Investigator:
         resp = self.client.respond(self.cfg.wonder_model, dumps(dossier), instructions=wonder_rules,
                                    reasoning_effort=self.cfg.wonder_reasoning_effort)
         self.run.reviews += 1
-        self.run.tokens += resp.usage.total_tokens if resp.usage else 0
-        add_usage(self.run.usage, self.cfg.wonder_model, resp.usage)
-        self.emit("usage", **self.run.usage_summary)
+        self.add_usage(self.cfg.wonder_model, resp.usage)
         advice = resp.output_text.strip()
         self.emit("review", trigger=trigger, advice=advice, reasoning=reasoning_summary(resp))
         return advice
@@ -157,22 +173,42 @@ class Investigator:
             basis = {c: ("uncertain" if c in (uncertain or []) else "proposed") for c in parent}
         self.emit("candidate", why=why, edges=[{"child": c, "parent": p, "basis": basis[c]} for c, p in parent.items()])
 
-    def meta_inference(self) -> dict:
-        """Fourth method: Muse Wonder infers the topology from the raw experiment data (one ensemble vote)."""
-        from gridxray.agent.meta_infer import meta_infer
+    def meta_inference(self, trigger: str) -> dict:
+        """Fourth method: Muse Wonder infers the topology from the raw experiment data (one ensemble vote).
 
+        It runs in a background thread so Spark keeps experimenting meanwhile; submit_result waits for it.
+        """
+        if self._meta_thread is not None:
+            return {"accepted": False, "message": "Muse Wonder's inference is already running or done; its vote "
+                    "appears in consensus (meta_vote) when ready."}
         tb = self.run.toolbox
-        self.emit("review_started", trigger="meta inference", reason="Muse Wonder infers the topology from the raw data")
-        cand, info = meta_infer(self.client, self.cfg.wonder_model, self.cfg.wonder_reasoning_effort, tb.obs,
-                                tb.evidence(), self.language)
-        add_usage(self.run.usage, self.cfg.wonder_model, info.pop("usage"))
-        self.emit("usage", **self.run.usage_summary)
-        tb.meta_tree = cand
-        self.emit("meta_inference", nodes_answered=info["nodes_answered"], uncertain=info["uncertain"],
-                  rationale=info["rationale"], reasoning=info["reasoning"],
-                  edges=[{"child": c, "parent": p, "basis": cand.basis[c]} for c, p in cand.parent.items()])
-        return {"accepted": True, "nodes_answered": info["nodes_answered"], "rationale": info["rationale"],
-                "hint": "Its tree now votes in `consensus`."}
+        ev = tb.evidence()  # the data as it stands now
+        self.emit("review_started", trigger="meta inference", reason=f"Muse Wonder infers the topology from the raw data ({trigger})")
+
+        def work() -> None:
+            from gridxray.agent.meta_infer import meta_infer
+
+            try:
+                cand, info = meta_infer(self.client, self.cfg.wonder_model, self.cfg.meta_infer_effort, tb.obs, ev, self.language)
+            except Exception as e:  # noqa: BLE001 - the other three methods still vote
+                self.emit("error", message=f"Muse Wonder's inference failed ({type(e).__name__}); continuing without its vote.")
+                return
+            self.add_usage(self.cfg.wonder_model, info.pop("usage"))
+            tb.meta_tree = cand
+            self.emit("meta_inference", nodes_answered=info["nodes_answered"], uncertain=info["uncertain"],
+                      rationale=info["rationale"], reasoning=info["reasoning"], experiments=len(ev.sens),
+                      edges=[{"child": c, "parent": p, "basis": cand.basis[c]} for c, p in cand.parent.items()])
+
+        self._meta_thread = threading.Thread(target=work, name="meta-inference", daemon=True)
+        self._meta_thread.start()
+        return {"accepted": True, "running_in_background": True,
+                "hint": "Keep experimenting; its tree joins consensus (meta_vote: true) when ready."}
+
+    def wait_meta(self, timeout: float = META_WAIT_SECONDS) -> None:
+        end = time.monotonic() + timeout
+        while (self._meta_thread is not None and self._meta_thread.is_alive() and not self.run.stopped
+               and time.monotonic() < end):
+            self._meta_thread.join(0.5)
 
     # ------------------------------------------------------------ tool dispatch
 
@@ -185,12 +221,15 @@ class Investigator:
         self.emit("tool_call", tool=name, args=args)
         try:
             if name == "meta_inference":
-                return self.meta_inference()
+                out = self.meta_inference("requested by Spark")
+                self.emit("tool_result", tool=name, ok=True, output=out)
+                return out
             if name == "request_review":
                 return {"reviewer_advice": self.review(args.get("reason", ""), "requested by Spark")}
             if name == "submit_result":
                 uncertain = len(args.get("uncertain", []))
                 total = max(1, len(tb.obs.nodes))
+                self.wait_meta()  # let Wonder's vote count before the consensus tree is final
                 if (uncertain / total > UNCERTAIN_REVIEW_RATIO and self.run.reviews == 0
                         and tb.engine.remaining > 0):
                     advice = self.review(f"Spark wants to close with {uncertain}/{total} uncertain edges.",
@@ -206,6 +245,11 @@ class Investigator:
             self.emit("experiment", args=args, **out)
             if out.get("accepted"):
                 self.emit_candidate("after experiment")
+        elif name == "run_experiments" and "results" in out:
+            for r in out["results"]:
+                self.emit("experiment", **({"message": r.get("error", "")} | r))
+            if any(r.get("accepted") for r in out["results"]):
+                self.emit_candidate("after experiments")
         elif name == "note_hypothesis":
             self.emit("hypothesis", **args)
         elif name == "submit_result" and out.get("accepted"):
@@ -246,12 +290,22 @@ class Investigator:
                 "of this investigation; continue from here (do not repeat experiments already done).\n"
                 + dumps(state) + ("\n" + "\n".join(str(x) for x in extra if x) if extra else ""))
 
+    def first_look(self) -> dict:
+        """The free, no-budget first step, computed before Spark's first turn and handed to it directly."""
+        tb = self.run.toolbox
+        out = {}
+        for name in AUTO_TOOLS:
+            self.emit("tool_call", tool=name, args={}, auto=True)
+            out[name] = tb.call(name, {})
+            self.emit("tool_result", tool=name, ok=True, output=out[name], auto=True)
+        return out
+
     # ------------------------------------------------------------ main loop
 
     def investigate(self) -> Investigation:
         tb = self.run.toolbox
         n = len(tb.obs.nodes)
-        inputs: str | list[dict] = initial_task(tb.engine.budget, n)
+        inputs: str | list[dict] = ""
         if self.resumed_from is not None:
             inputs = self.resume_message("The investigation service restarted; continue where you left off.")
         prev: str | None = None
@@ -260,6 +314,7 @@ class Investigator:
         recoveries = 0
         if self.resumed_from is None:
             self.emit("started", budget=tb.engine.budget, nodes=n, spark=self.cfg.spark_model, wonder=self.cfg.wonder_model)
+            inputs = initial_task(tb.engine.budget, n, dumps(self.first_look()))
             self.emit_candidate("initial guess")
         else:
             self.emit("resumed", message=f"Investigation resumed: {self.run.experiments_used} experiments restored, "
@@ -282,9 +337,9 @@ class Investigator:
                 prev, inputs = None, self.resume_message(inputs)
                 continue
             prev = resp.id
-            self.run.tokens += resp.usage.total_tokens if resp.usage else 0
-            add_usage(self.run.usage, self.cfg.spark_model, resp.usage)
-            self.emit("usage", **self.run.usage_summary)
+            self.add_usage(self.cfg.spark_model, resp.usage)
+            if self.run.stopped:  # stopped while Spark was thinking: do not act on its answer
+                break
             if summary := reasoning_summary(resp):
                 self.emit("reasoning", text=summary)
             if text := resp.output_text.strip():
@@ -302,12 +357,18 @@ class Investigator:
 
             outputs: list[dict] = []
             for c in calls:
+                if self.run.stopped:
+                    break
                 out = self.dispatch(c.name, c.arguments)
-                if c.name == "run_experiment" and out.get("accepted"):
+                if out.get("accepted") or any(r.get("accepted") for r in out.get("results", [])):
                     last_experiment_step = self.run.steps
                 outputs.append({"type": "function_call_output", "call_id": c.call_id, "output": dumps(out)})
-            if tb.result is not None:
+            if tb.result is not None or self.run.stopped:
                 break
+
+            # Wonder's own inference starts by itself at half budget and runs while Spark keeps going
+            if self._meta_thread is None and self.run.experiments_used >= max(2, tb.engine.budget // 2):
+                self.meta_inference("half the budget spent")
 
             # orchestrator escalation: half the budget is spent and much of the tree is still unconfirmed
             if (self.run.reviews == 0 and tb.engine.remaining > 0
@@ -332,6 +393,8 @@ class Investigator:
                                 "Check your hypothesis and call submit_result now."})
             inputs = outputs
 
+        if not self.run.stopped:
+            self.wait_meta()  # its usage and vote belong to this run
         if self.run.stopped:
             self.emit("stopped", message="Investigation stopped by the user.")
         elif tb.result is None and tb.engine.history:

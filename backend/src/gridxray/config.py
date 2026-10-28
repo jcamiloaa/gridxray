@@ -12,8 +12,9 @@ class Settings(BaseSettings):
     meta_api_key: str = Field("", validation_alias=AliasChoices("META_API_KEY", "MODEL_API_KEY"))
     spark_model: str = "muse-spark-1.3"  # lead investigator: tight tool loops
     wonder_model: str = "muse-wonder-1.0"  # second-opinion reviewer: deeper reasoning
-    spark_reasoning_effort: str = "medium"
-    wonder_reasoning_effort: str = "high"
+    spark_reasoning_effort: str = "medium"  # low was faster but forgot arguments and lost accuracy
+    wonder_reasoning_effort: str = "high"  # second-opinion reviews
+    meta_infer_effort: str = "medium"  # Wonder's own topology inference, run in the background
 
     experiment_budget: int = 20
     max_agent_steps: int = 60

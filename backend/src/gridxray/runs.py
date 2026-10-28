@@ -45,12 +45,16 @@ class LiveRun:
     seal_nonce: str | None = field(default=None, repr=False)
     investigator: Investigator | None = field(default=None, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    closed: bool = False  # stopped by the user: the log is final, late work from the thread is dropped
     _flushed: float = 0.0
 
     def push(self, event: dict) -> None:
         with self.lock:
-            self.events.append(event)
-        if event["kind"] == "usage":
+            if self.closed and event["kind"] != "usage":
+                return
+            if not self.closed:
+                self.events.append(event)
+        if event["kind"] == "usage":  # a model call that was in flight when stopped is still billed
             self.usage = {k: v for k, v in event.items() if k not in ("t", "kind")}
         if time.monotonic() - self._flushed > FLUSH_EVERY or event["kind"] in ("experiment", "result", "done"):
             self.flush()
@@ -120,11 +124,20 @@ class RunManager:
         return run
 
     def stop(self, run_id: str) -> bool:
+        """Stop now, wherever the run is: the log closes at once; a model call in flight is abandoned."""
         run = self.runs.get(run_id)
-        if run and run.status == "running" and run.investigator:
+        if not run or run.status != "running":
+            return False
+        if run.investigator:
             run.investigator.stop()
-            return True
-        return False
+        t = round(run.events[-1]["t"] if run.events else 0.0, 2)
+        run.push({"t": t, "kind": "stopped", "message": "Investigation stopped by the user."})
+        run.status = "stopped"
+        run.push({"t": t, "kind": "done", "status": "stopped", "score": run.score, "usage": run.usage})
+        with run.lock:
+            run.closed = True
+        run.flush()
+        return True
 
     def resume_interrupted(self) -> int:
         """Called at startup: resume every run the previous process left running."""
@@ -151,6 +164,8 @@ class RunManager:
             inv = Investigator(s, budget=run.budget, client=self.client_factory(),
                                on_event=lambda e: run.push(e.to_dict()), language=run.language, t_offset=t_offset)
             run.investigator = inv
+            if run.closed:  # stopped before the investigator existed
+                return
             if not any(e.get("kind") == "sealed" for e in run.events) and run.seal_nonce:
                 # commit to the hidden topology before the AI sees anything, and publish what it will see
                 from gridxray.agent.prompts import SPARK_INSTRUCTIONS
@@ -171,10 +186,14 @@ class RunManager:
                              "seconds": round(time.perf_counter() - t0, 1)}
             else:
                 run.score = {"gridxray": None, "baselines": baselines, "usage": run.usage}
+            if run.closed:
+                return
             run.status = "stopped" if result.stopped else ("done" if result.result else "failed")
         except Exception as e:  # noqa: BLE001 - a failed run must still close cleanly for the UI
             run.push(Event(time.perf_counter() - t0, "error", {"message": f"{type(e).__name__}: {e}"}).to_dict())
             traceback.print_exc()
+            if run.closed:
+                return
             run.status = "failed"
         run.push({"t": round(time.perf_counter() - t0, 2), "kind": "done", "status": run.status,
                   "score": run.score, "usage": run.usage})

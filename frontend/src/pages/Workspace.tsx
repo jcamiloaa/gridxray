@@ -69,8 +69,10 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
     setSeed(r.seed)
     setBudget(r.budget)
     setSelected(null); setTruth(null); setRevealed(false)
+    const next = await createScenario(source, r.seed)
+    // mark the run only now, so it attaches to this grid and not to the one still on screen
     pendingAttach.current = r.id
-    setScenario(await createScenario(source, r.seed))
+    setScenario(next)
     setGenerated({ source, seed: r.seed })
   }
   // reattach to an investigation already running in this session (page reload, second tab)
@@ -224,8 +226,8 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 <button className="btn-primary btn-lg" onClick={() => run.start(budget, lang)} disabled={run.status === 'running'}>
                   {run.status === 'running' ? t('Investigating…') : run.status === 'idle' ? t('Start investigation') : t('Run again')}
                 </button>
-                {run.status === 'running' && <button onClick={run.stop}>{t('Stop')}</button>}
-                {run.status === 'failed' && run.runId && <button onClick={run.resume}>{t('Resume')}</button>}
+                {run.status === 'running' && <button className="btn-stop" onClick={run.stop}>■ {t('STOP')}</button>}
+                {(run.status === 'failed' || run.status === 'stopped') && run.runId && <button onClick={run.resume}>{t('Resume')}</button>}
                 {run.status === 'running' && (
                   <div className="run-progress">
                     <span>{t('Experiments')} {run.experimentsUsed}/{run.budget || budget}</span>
@@ -267,7 +269,12 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                     aria-label={t('Drag to resize')} title={t('Drag to resize')} />
                   <div className="ws-timeline__head">
                     <b>{t('Investigation log')}</b>
-                    <span className={`pill run-pill run-pill--${run.status}`}>{t(run.status)}</span>
+                    <span className="row" style={{ gap: 8 }}>
+                      {run.status === 'running' && (
+                        <button className="btn-stop btn-stop--sm" onClick={run.stop} title={t('Stops the investigation now, wherever it is')}>■ {t('STOP')}</button>
+                      )}
+                      <span className={`pill run-pill run-pill--${run.status}`}>{t(run.status)}</span>
+                    </span>
                   </div>
                   {run.score?.gridxray && (
                     <div className="run-result">

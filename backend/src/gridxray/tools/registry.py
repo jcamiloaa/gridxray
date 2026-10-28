@@ -42,6 +42,9 @@ EDGE_LIST = {
               "required": ["child", "parent"], "additionalProperties": False},
 }
 
+MAX_BATCH = 5
+DEFAULT_DELTA_KW = 1500.0
+
 TOOLS: list[dict] = [
     _fn("get_overview",
         "Everything the utility knows before experimenting: each secondary substation's city block "
@@ -59,6 +62,17 @@ TOOLS: list[dict] = [
          "switch_id": {"type": "integer", "description": "Switch id, for toggle_switch."},
          "repeats": {"type": "integer", "description": "Readings averaged per state (default 10, max 40). More = less noise."}},
         ["kind"]),
+    _fn("run_experiments",
+        "Run several virtual experiments in one call (up to 5; each accepted one costs 1 budget unit), "
+        "e.g. the top suggestions. Same fields as run_experiment per item. Returns every result plus the "
+        "updated consensus, so you can plan the next batch without extra calls. Prefer this to one-by-one.",
+        {"experiments": {"type": "array", "maxItems": MAX_BATCH, "items": {
+            "type": "object", "additionalProperties": False, "required": ["kind"],
+            "properties": {"kind": {"type": "string", "enum": ["perturb_load", "toggle_switch"]},
+                           "node": {"type": "string"},
+                           "delta_kw": {"type": "number", "description": f"kW to add (default {DEFAULT_DELTA_KW:.0f})."},
+                           "switch_id": {"type": "integer"}, "repeats": {"type": "integer"}}}}},
+        ["experiments"]),
     _fn("get_evidence",
         "Summary of all load experiments so far: for each perturbed node, its electrical depth "
         "(pu per MW) and the metered nodes the data places downstream of it. Also flags meters "
@@ -75,7 +89,8 @@ TOOLS: list[dict] = [
         "Non-AI prior from GIS and one voltage snapshot: each node hangs from its most upstream-looking neighbour.", {}),
     _fn("meta_inference",
         "Ask the Meta model (Muse Wonder) to infer the full topology directly from the raw experiment data. "
-        "Its answer becomes one vote in the ensemble. Best after a few experiments.", {}),
+        "It runs in the background while you keep experimenting (the orchestrator also starts it at half "
+        "budget); its answer joins consensus as one vote when ready.", {}),
     _fn("consensus",
         "Ensemble of all methods (physics from experiments, correlation ML, geography and the Meta model's own "
         "inference when available): chosen parent per node, how many methods agree, and the nodes where they "
@@ -207,6 +222,28 @@ class ToolBox:
             out[label] = dict(rows)
             out["no_data"] = [self.name[n] for n, dv in rec.delta_vm.items() if dv is None]
         return out
+
+    def t_run_experiments(self, experiments: list[dict]) -> dict:
+        if not experiments:
+            raise ToolError("experiments is empty")
+        results = []
+        for args in experiments[:MAX_BATCH]:
+            if args.get("kind") == "perturb_load" and args.get("delta_kw") is None:
+                args = {**args, "delta_kw": DEFAULT_DELTA_KW}  # a forgotten size should not waste the batch
+            try:
+                results.append({"args": args, **self.t_run_experiment(**args)})
+            except (ToolError, TypeError) as e:
+                results.append({"args": args, "accepted": False, "error": str(e), "budget_remaining": self.engine.remaining})
+            if self.engine.remaining <= 0:
+                break
+        return {"results": results, "budget_remaining": self.engine.remaining, "consensus": self.consensus_brief()}
+
+    def consensus_brief(self) -> dict:
+        """Where the methods still disagree: the short form returned after each batch."""
+        c = self.ensemble()
+        return {"uncertain": [self.name[n] for n in c.uncertain],
+                "unanimous": sum(1 for n in c.parent if len(c.votes[n]) == 1), "total": len(c.parent),
+                "meta_vote": self.meta_tree is not None}
 
     def t_get_evidence(self) -> dict:
         ev = self.evidence()

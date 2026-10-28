@@ -1,8 +1,10 @@
 import json
+from types import SimpleNamespace
 
 from fakes import ScriptedClient
 
 from gridxray.agent.investigator import Investigator
+from gridxray.config import settings
 from gridxray.lab import Complexity, generate_scenario
 from gridxray.sim import ExperimentEngine
 from gridxray.tools import ToolBox
@@ -114,3 +116,37 @@ def test_usage_is_priced_per_model():
     spark = cost_usd("muse-spark-1.3", {"input": 1_000_000, "cached": 0, "output": 1_000_000})
     wonder = cost_usd("muse-wonder-1.0", {"input": 1_000_000, "cached": 1_000_000, "output": 0})
     assert spark == 1.25 + 4.25 and wonder == 0.20
+
+
+def test_batched_experiments_and_background_meta_inference():
+    """One run_experiments call spends several units; Wonder's inference starts by itself at half budget."""
+    from fakes import _call
+
+    s = generate_scenario(Complexity.EASY, seed=2)
+    names = [n.name for n in s.observable().nodes if n.metered][-3:]
+
+    class Batcher(ScriptedClient):
+        def respond(self, model, input, **kw):
+            if model != settings.wonder_model and self.turn == 0:
+                self.turn = 3  # skip the scripted single-experiment turns
+                batch = [{"kind": "perturb_load", "node": n, "delta_kw": 2000} for n in names]
+                return SimpleNamespace(id="b", output=[_call("run_experiments", {"experiments": batch}, 1)],
+                                       output_text="", usage=None)
+            return super().respond(model, input, **kw)
+
+    events = []
+    run = Investigator(s, budget=4, client=Batcher(s), on_event=events.append).investigate()
+    kinds = [e.kind for e in events]
+    assert run.experiments_used == 3 and kinds.count("experiment") == 3
+    assert [e.data["tool"] for e in events if e.kind == "tool_call" and e.data.get("auto")][:2] == ["get_overview", "passive_correlation"]
+    assert "meta_inference" in kinds and kinds.index("meta_inference") < kinds.index("result")
+    assert run.toolbox.meta_tree is not None and run.result is not None
+
+
+def test_batch_fills_a_missing_load_size():
+    s = generate_scenario(Complexity.EASY, seed=1)
+    tb = ToolBox(s, budget=3)
+    node = next(n.name for n in s.observable().nodes if n.metered)
+    out = tb.call("run_experiments", {"experiments": [{"kind": "perturb_load", "node": node}, {"kind": "perturb_load"}]})
+    assert out["results"][0]["accepted"] and out["results"][0]["args"]["delta_kw"] > 0
+    assert not out["results"][1]["accepted"] and out["results"][1]["budget_remaining"] == 2

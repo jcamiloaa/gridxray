@@ -16,6 +16,7 @@ const TOOL_LABEL: Record<string, string> = {
   geographic_prior: 'Geography: builds a prior from GIS blocks and voltages',
   consensus: 'Ensemble: compares physics, correlation, geography and Meta AI',
   meta_inference: 'Asks Muse Wonder to infer the topology from the raw data',
+  run_experiments: 'Runs a batch of experiments',
 }
 
 function Experiment({ e }: { e: RunEvent }) {

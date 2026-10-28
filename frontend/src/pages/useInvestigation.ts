@@ -5,7 +5,7 @@ import {
 } from '../api/client'
 import type { Overlay } from '../scene/model'
 
-export type RunStatus = 'idle' | 'running' | 'done' | 'failed'
+export type RunStatus = 'idle' | 'running' | 'done' | 'failed' | 'stopped'
 
 /** Outcome of re-checking, in this browser, the commitment published before the run. */
 export type SealCheck = { state: 'checking' } | { state: 'ok' | 'bad'; commitment: string; recomputed: string; edgesMatch: boolean } | { state: 'unavailable'; reason: string }
@@ -56,8 +56,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
       }
     }
     if (e.kind === 'done') {
-      setStatus(e.status === 'done' ? 'done' : 'failed')
-      if (e.status === 'stopped') setStatus('failed')
+      setStatus(e.status === 'done' || e.status === 'stopped' ? e.status : 'failed')
       setScore((e.score as RunScore) ?? null)
       setFocus(undefined)
     }

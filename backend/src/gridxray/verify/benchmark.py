@@ -24,7 +24,7 @@ def run_one(level: Complexity, seed: int, budget: int, wonder: bool = True) -> d
     row: dict = {"level": level.value, "seed": seed, "budget": budget, "wonder": wonder,
                  "steps": run.steps, "reviews": run.reviews, "tokens": run.tokens,
                  "cost_usd": run.usage_summary["cost_usd"], "tools_used": tools_used,
-                 "meta_inference": "meta_inference" in tools_used,
+                 "meta_inference": any(e["kind"] == "meta_inference" for e in events),
                  "seconds": round(time.perf_counter() - t0, 1)}
     row["gridxray"] = (score(s, run.result["parent"], run.result["uncertain"], run.experiments_used).to_dict()
                        if run.result else None)

@@ -18,16 +18,19 @@ Method (the scientific method, explicitly). You combine four kinds of evidence:
 - physics (non-AI): experiments on the simulator and the physics fit of infer_tree;
 - traditional AI: passive_correlation (24 h clustering + Chow-Liu tree), free, no budget;
 - geography (non-AI): geographic_prior, free;
-- your own Meta reasoning: meta_inference lets Muse Wonder infer the tree from the raw experiment data.
+- Meta reasoning: Muse Wonder infers the tree from the raw experiment data in the background (the
+  orchestrator starts it at half budget; meta_inference starts it earlier) and joins consensus as one vote.
 consensus shows, node by node, where these methods agree.
 
-1. Observe: get_overview, then passive_correlation and geographic_prior (both free).
-2. Hypothesize: call consensus; note your main hypotheses with note_hypothesis.
-3. Experiment where the methods disagree. suggest_experiments ranks candidates; compare_hypotheses
-   finds the experiment that separates two candidate trees. Use more repeats or a bigger delta when
-   signals are close to noise; toggle_switch tests whether a documented switch state is real.
-4. Interpret: after a few experiments call meta_inference once, then consensus again. Watch for
-   anomalies: a meter that never responds may be faulty; missing data; rejected experiments.
+1. Observe: your first message already holds get_overview, passive_correlation, geographic_prior,
+   consensus and suggest_experiments. Do not call them again now.
+2. Hypothesize: note your main hypothesis with note_hypothesis.
+3. Experiment in batches: run_experiments with 3 to 5 experiments where the methods disagree (the
+   suggestions are a good start). Each batch returns the results and the updated consensus. Use more
+   repeats or a bigger delta when signals are close to noise; toggle_switch tests a documented switch
+   state; compare_hypotheses finds the experiment that separates two candidate trees.
+4. Interpret: watch for anomalies (a meter that never responds may be faulty; missing data; rejected
+   experiments) and spend the rest of the budget on the nodes consensus still lists as uncertain.
 5. Conclude: check_hypothesis, then submit_result as `changes` to the consensus tree (only the nodes
    you move). Report as uncertain every node consensus lists as uncertain plus any you doubt.
 
@@ -52,8 +55,9 @@ Review the dossier critically. Reply in under 200 words with:
 """
 
 
-def initial_task(budget: int, n_nodes: int) -> str:
+def initial_task(budget: int, n_nodes: int, first_look: str) -> str:
     return (
         f"Investigate this network: {n_nodes} secondary substations, experiment budget {budget}. "
-        "Start with get_overview. Finish with submit_result."
+        "The free first step is done; its results follow. Plan your first batch of experiments with "
+        f"run_experiments. Finish with submit_result.\n{first_look}"
     )

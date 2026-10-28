@@ -96,3 +96,25 @@ def test_report_and_evidence(client):
     assert "Informe de investigación GridXray" in html and "Resultado verificado" in html
     ev = client.get("/evidence").json()
     assert len(ev["guarantees"]) >= 5 and "metric" in ev["scoring"]
+
+
+def test_stop_is_immediate_even_while_the_model_is_thinking(client, monkeypatch):
+    """STOP closes the run at once; whatever the model answers afterwards is ignored."""
+
+    class Slow(ScriptedClient):
+        def respond(self, model, input, **kw):
+            time.sleep(3)  # a long model call in flight
+            return super().respond(model, input, **kw)
+
+    monkeypatch.setattr(manager, "client_factory", lambda: Slow(generate_scenario(Complexity.EASY, 1)))
+    run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5}).json()["id"]
+    time.sleep(0.5)
+    t0 = time.monotonic()
+    assert client.post(f"/investigations/{run_id}/stop").status_code == 200
+    body = client.get(f"/investigations/{run_id}").json()
+    assert time.monotonic() - t0 < 1.5 and body["status"] == "stopped"
+    assert [e["kind"] for e in body["events"]][-2:] == ["stopped", "done"]
+    time.sleep(3.5)  # the abandoned model call returns: nothing more is recorded
+    after = client.get(f"/investigations/{run_id}").json()
+    assert after["status"] == "stopped" and len(after["events"]) == len(body["events"])
+    assert not any(e["kind"] == "experiment" for e in after["events"])
