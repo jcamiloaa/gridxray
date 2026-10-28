@@ -57,3 +57,27 @@ def test_truth_requires_login_and_matches_seed(client):
     client.post("/auth/demo")
     truth = client.post("/scenarios/truth?complexity=medium&seed=3").json()["truth"]
     assert truth["edges"] and truth["lines"]
+
+
+def test_meta_key_saved_in_the_app_wins_over_env_and_is_never_returned(monkeypatch):
+    from gridxray.api import settings as settings_api
+    from gridxray.apikeys import key_for_user
+    from gridxray.config import settings
+    from gridxray.store.db import SessionLocal
+
+    monkeypatch.setattr(settings_api, "check_key", lambda key: None)  # no call to Meta in tests
+    monkeypatch.setattr(settings, "meta_api_key", "env-key-1234")
+    with TestClient(app) as c:
+        user = c.post("/auth/demo").json()
+        assert c.get("/settings/meta-key").json() | {"hint": None} == {
+            "configured": True, "source": "env", "hint": None, "env_configured": True}
+        saved = c.put("/settings/meta-key", json={"api_key": "app-key-abcd9876"}).json()
+        assert saved["source"] == "app" and saved["hint"] == "…9876" and "app-key" not in str(saved)
+        with SessionLocal() as db:
+            assert key_for_user(db, user["id"]) == "app-key-abcd9876"  # the app key wins
+        assert c.delete("/settings/meta-key").json()["source"] == "env"  # back to backend/.env
+
+        monkeypatch.setattr(settings, "meta_api_key", "")
+        assert c.get("/settings/meta-key").json()["configured"] is False
+        r = c.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5})
+        assert r.status_code == 400 and "Meta API key" in r.json()["detail"]

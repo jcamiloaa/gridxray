@@ -12,13 +12,11 @@ from gridxray.config import Settings, settings
 
 
 class MetaClient:
-    def __init__(self, cfg: Settings = settings, timeout: float = 300.0) -> None:
-        if not cfg.meta_api_key:
-            raise RuntimeError("Set META_API_KEY in backend/.env")
-        self._client = OpenAI(
-            base_url=cfg.meta_api_base_url, api_key=cfg.meta_api_key, timeout=timeout,
-            max_retries=1,
-        )
+    def __init__(self, cfg: Settings = settings, timeout: float = 300.0, api_key: str | None = None) -> None:
+        key = api_key or cfg.meta_api_key  # a key saved in the app wins over backend/.env
+        if not key:
+            raise RuntimeError("Set the Meta API key in Usage & settings, or META_API_KEY in backend/.env")
+        self._client = OpenAI(base_url=cfg.meta_api_base_url, api_key=key, timeout=timeout, max_retries=1)
 
     def respond(
         self,

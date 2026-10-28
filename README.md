@@ -82,6 +82,8 @@ Change them with `DEMO_USER_EMAIL` / `DEMO_USER_PASSWORD` in `backend/.env`. Ses
 
 `backend/.env` is git-ignored: never commit your key. `MODEL_API_KEY`, the name used in Meta's docs, also works.
 
+You can also paste the key in the app, under **Usage & settings**: it is checked with Meta before saving, stored encrypted (with `SECRET_KEY`) and never shown again. A key saved in the app takes priority over `backend/.env`; if neither is set, the app asks for one before running an investigation.
+
 The investigating agents call the Meta Model API, so a key is required to run investigations. Scenario generation and the verifier work without one.
 
 ## Development

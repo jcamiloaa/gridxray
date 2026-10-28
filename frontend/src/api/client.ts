@@ -176,6 +176,13 @@ export interface UsageReport {
   models: { spark: string; wonder: string }
 }
 
+export interface MetaKeyStatus { configured: boolean; source: 'app' | 'env' | null; hint: string | null; env_configured: boolean }
+export const metaKey = {
+  status: () => request<MetaKeyStatus>('/settings/meta-key'),
+  save: (api_key: string) => request<MetaKeyStatus>('/settings/meta-key', { method: 'PUT', body: JSON.stringify({ api_key }) }),
+  remove: () => request<MetaKeyStatus>('/settings/meta-key', { method: 'DELETE' }),
+}
+
 export const listRuns = () => request<RunSummary[]>('/investigations')
 export const getUsage = () => request<UsageReport>('/investigations/usage')
 export const stopRun = (id: string) => request<{ stopping: boolean }>(`/investigations/${id}/stop`, { method: 'POST' })

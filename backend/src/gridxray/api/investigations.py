@@ -45,6 +45,11 @@ def _owned(db, run_id: str, user, session: str | None) -> InvestigationRun:
 
 @router.post("", status_code=status.HTTP_201_CREATED)
 def start(body: StartRequest, user: CurrentUser, session: Session = None) -> dict:
+    from gridxray.apikeys import effective_key
+
+    if effective_key(user)[0] is None:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST,
+                            "No Meta API key: add it in Usage & settings (or META_API_KEY in backend/.env)")
     key = _key(user, session)
     if manager.active_for(user.id, key):
         raise HTTPException(status.HTTP_409_CONFLICT, "An investigation is already running in this session")

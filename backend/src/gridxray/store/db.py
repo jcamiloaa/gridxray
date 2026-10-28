@@ -40,3 +40,4 @@ def init_db() -> None:
         with engine.begin() as conn:
             for ddl in ("session_key VARCHAR(32)", "language VARCHAR(5) DEFAULT 'en'", "usage JSON", "seal_nonce VARCHAR(64)"):
                 conn.execute(text(f"ALTER TABLE investigations ADD COLUMN IF NOT EXISTS {ddl}"))
+            conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS meta_api_key_enc TEXT"))

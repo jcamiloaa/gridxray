@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { getUsage, type UsageReport } from '../api/client'
 import { LanguageToggle, useI18n } from '../i18n'
+import { MetaKeySettings } from './MetaKeySettings'
 
 const fmt = (n: number) => n.toLocaleString()
 
@@ -24,6 +25,7 @@ export function UsageDrawer({ onClose }: { onClose: () => void }) {
         <div className="row" style={{ justifyContent: 'space-between' }}>
           <b>{t('Language')}</b><LanguageToggle />
         </div>
+        <MetaKeySettings />
         <h3 style={{ fontSize: '1rem', marginTop: 8 }}>{t('Session usage')}</h3>
         <div className="stats">
           <div className="stat"><b>{u?.runs ?? '—'}</b><span>{t('Investigations')}</span></div>

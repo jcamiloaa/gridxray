@@ -88,7 +88,7 @@ def run_summary(row: InvestigationRun | LiveRun) -> dict:
 
 
 class RunManager:
-    def __init__(self, client_factory: Callable[[], MetaClient] = MetaClient) -> None:
+    def __init__(self, client_factory: Callable[..., MetaClient] = MetaClient) -> None:
         self.client_factory = client_factory
         self.runs: dict[str, LiveRun] = {}
 
@@ -161,7 +161,11 @@ class RunManager:
             if restore:
                 with run.lock:
                     run.events = [e for e in run.events if e.get("kind") != "done"]
-            inv = Investigator(s, budget=run.budget, client=self.client_factory(),
+            from gridxray.apikeys import key_for_user
+
+            with SessionLocal() as db:
+                api_key = key_for_user(db, run.user_id)  # the owner's key from the app, else backend/.env
+            inv = Investigator(s, budget=run.budget, client=self.client_factory(api_key=api_key),
                                on_event=lambda e: run.push(e.to_dict()), language=run.language, t_offset=t_offset)
             run.investigator = inv
             if run.closed:  # stopped before the investigator existed

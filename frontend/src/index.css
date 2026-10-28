@@ -503,3 +503,11 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .tl__what { margin: 4px 0; font-size: .82rem; }
 .tl__what summary { cursor: pointer; color: var(--accent); font-weight: 600; }
 .tl__what p { margin: 4px 0; }
+
+/* Meta API key */
+.meta-key { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.meta-key--missing { border-color: var(--danger); background: #fdf3f3; }
+.meta-key p { margin: 0; font-size: .85rem; }
+.meta-key__form { display: flex; gap: 8px; }
+.meta-key__form input { flex: 1; min-width: 0; }
+.meta-key__ok { color: #0f7a53; font-weight: 600; }

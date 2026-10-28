@@ -23,7 +23,7 @@ def wait_done(client, run_id: str, timeout: float = 60.0) -> dict:
 @pytest.fixture
 def client(monkeypatch):
     # the scripted model plays Spark/Wonder; it plans moves for the same scenario the run builds
-    monkeypatch.setattr(manager, "client_factory", lambda: ScriptedClient(generate_scenario(Complexity.EASY, 1)))
+    monkeypatch.setattr(manager, "client_factory", lambda **kw: ScriptedClient(generate_scenario(Complexity.EASY, 1)))
     with TestClient(app) as c:
         c.post("/auth/demo")
         yield c
@@ -106,7 +106,7 @@ def test_stop_is_immediate_even_while_the_model_is_thinking(client, monkeypatch)
             time.sleep(3)  # a long model call in flight
             return super().respond(model, input, **kw)
 
-    monkeypatch.setattr(manager, "client_factory", lambda: Slow(generate_scenario(Complexity.EASY, 1)))
+    monkeypatch.setattr(manager, "client_factory", lambda **kw: Slow(generate_scenario(Complexity.EASY, 1)))
     run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 5}).json()["id"]
     time.sleep(0.5)
     t0 = time.monotonic()

@@ -234,7 +234,11 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                     <span className="run-progress__bar"><i style={{ width: `${(100 * run.experimentsUsed) / (run.budget || budget)}%` }} /></span>
                   </div>
                 )}
-                {run.error && <p className="error">{run.error}</p>}
+                {run.error && (
+                  <p className="error">{t(run.error)}
+                    {run.error.includes('Meta API key') && <> <button className="btn-link" onClick={() => setDrawer('usage')}>{t('Usage & settings')}</button></>}
+                  </p>
+                )}
                 {run.score?.gridxray && (
                   <div className="score-card">
                     <b>{t('Verified result')}</b>
