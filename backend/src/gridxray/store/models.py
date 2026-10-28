@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import JSON, DateTime, ForeignKey, LargeBinary, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from gridxray.store.db import Base
@@ -33,4 +33,16 @@ class InvestigationRun(Base):
     language: Mapped[str] = mapped_column(String(5), default="en")
     usage: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     seal_nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)  # revealed only when finished
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Media(Base):
+    """Pictures produced during an investigation (field-crew photos)."""
+
+    __tablename__ = "media"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(32), index=True)
+    content_type: Mapped[str] = mapped_column(String(40))
+    data: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

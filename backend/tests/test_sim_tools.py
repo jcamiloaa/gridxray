@@ -69,9 +69,9 @@ def test_investigator_runs_the_tool_loop_and_wonder_review():
     events = []
     run = Investigator(s, budget=5, client=client, on_event=events.append).investigate()
     kinds = {e.kind for e in events}
-    assert run.result is not None and run.experiments_used == 1
+    assert run.result is not None and run.experiments_used == 2  # one experiment + the field crew
     assert {"tool_call", "experiment", "hypothesis", "review", "result"} <= kinds
-    assert client.wonder_calls == 1
+    assert client.wonder_calls >= 1  # the requested review (plus the meta inference once half the budget is spent)
 
 
 def test_investigator_recovers_when_the_server_drops_the_conversation():
@@ -137,7 +137,7 @@ def test_batched_experiments_and_background_meta_inference():
     events = []
     run = Investigator(s, budget=4, client=Batcher(s), on_event=events.append).investigate()
     kinds = [e.kind for e in events]
-    assert run.experiments_used == 3 and kinds.count("experiment") == 3
+    assert run.experiments_used == 4 and kinds.count("experiment") == 3  # + the field crew
     assert [e.data["tool"] for e in events if e.kind == "tool_call" and e.data.get("auto")][:2] == ["get_overview", "passive_correlation"]
     assert "meta_inference" in kinds and kinds.index("meta_inference") < kinds.index("result")
     assert run.toolbox.meta_tree is not None and run.result is not None
@@ -163,3 +163,26 @@ def test_rejection_explains_the_limit_and_a_safe_size_works():
     assert r["limit"] in {"voltage_low", "line_overload"} and r["value"] and 0 < r["safe_kw"] < 2000
     assert set(r) <= {"limit", "value", "threshold", "safe_kw"}  # margins only: nothing that locates the wiring
     assert tb.call("run_experiment", {"kind": "perturb_load", "node": "SS-004", "delta_kw": r["safe_kw"]})["accepted"]
+
+
+def test_every_investigation_sends_a_field_crew():
+    """Photo -> SAM 3.1 objects -> reading, checked against the switch records; costs one budget unit."""
+    s = generate_scenario(Complexity.MEDIUM, seed=1)  # has a tie switch
+    saved = []
+    events = []
+    inv = Investigator(s, budget=5, client=ScriptedClient(s), on_event=lambda e: events.append(e.to_dict()),
+                       save_media=lambda data: saved.append(data) or f"m{len(saved)}")
+    run = inv.investigate()
+    kinds = [e["kind"] for e in events]
+    for k in ("crew_dispatched", "field_photo", "segmentation", "field_reading"):
+        assert k in kinds
+    photo = next(e for e in events if e["kind"] == "field_photo")
+    seg = next(e for e in events if e["kind"] == "segmentation")
+    reading = next(e for e in events if e["kind"] == "field_reading")
+    assert saved and photo["media_id"] == "m1" and "No company logos" in photo["prompt"]
+    assert seg["objects"][0]["label"] in {"switch", "kiosk"} and seg["objects"][0]["box"] == [4, 4, 20, 30]
+    assert reading["reading"]["switch_state"] == "closed" and reading["record_check"]
+    assert run.experiments_used >= 2  # the scripted experiment plus the crew visit
+    # the investigator only ever saw the reading: the simulator facts in the photo prompt never reach it
+    crew_outputs = [e for e in events if e["kind"] == "tool_result" and e.get("tool") == "dispatch_crew"]
+    assert all("real_position" not in str(e["output"]) for e in crew_outputs)

@@ -152,6 +152,15 @@ const ES: Record<string, string> = {
   'key.env': 'Se usa la clave de backend/.env. Si guardas una aquí, tendrá prioridad.',
   'Meta rejected this API key': 'Meta rechazó esta API key', 'This API key has no access to the Muse models': 'Esta API key no tiene acceso a los modelos Muse',
   'No Meta API key: add it in Usage & settings (or META_API_KEY in backend/.env)': 'Falta la API key de Meta: agrégala en Uso y ajustes (o META_API_KEY en backend/.env)',
+  'Sends a field crew': 'Envía una cuadrilla de campo', 'Field crew sent to': 'Cuadrilla enviada a', automatic: 'automática', 'Field crew': 'Cuadrilla',
+  Photo: 'Foto', Segmentation: 'Segmentación', Reading: 'Lectura', objects: 'objetos', 'working…': 'trabajando…', Enlarge: 'Ampliar',
+  'Hide segmentation': 'Ocultar segmentación', 'Show segmentation': 'Mostrar segmentación', 'Photo not stored for this run.': 'La foto no se guardó en esta corrida.',
+  'Muse Image is drawing the site…': 'Muse Image está generando la foto del sitio…', Switch: 'Interruptor', open: 'abierto', closed: 'cerrado', unknown: 'no se ve',
+  pole: 'poste', kiosk: 'kiosco', overhead: 'aérea', underground: 'subterránea', confidence: 'confianza', switch: 'interruptor', transformer: 'transformador',
+  insulator: 'aislador', tag: 'placa', cable: 'cable', 'kiosk door': 'puerta del kiosco',
+  'Record outdated': 'Registro desactualizado', 'matches the records': 'coincide con los registros', 'photo unclear': 'la foto no es concluyente',
+  'no switch on record here': 'no hay interruptor registrado aquí', 'How is this photo made?': '¿Cómo se hace esta foto?',
+  'crew.how': 'Muse Image dibuja el sitio a partir de lo que hay físicamente en el simulador (el texto de abajo, incluida la posición REAL del interruptor), como lo vería una cuadrilla. SAM 3.1 segmenta los equipos en la foto y Muse Spark la lee. El investigador nunca recibe este texto: solo la lectura de la foto, que puede equivocarse si la imagen es ambigua.',
   // guide
   'How to use the workspace': 'Cómo usar el área de trabajo',
 }
@@ -185,6 +194,7 @@ const EN_LONG: Record<string, string> = {
   'key.missing': 'There is no key in backend/.env. Paste your Meta API key here to run investigations.',
   'key.app': 'This key is used, ahead of backend/.env. It is stored encrypted and never shown again.',
   'key.env': 'The key from backend/.env is used. A key saved here takes priority.',
+  'crew.how': 'Muse Image draws the site from what is physically there in the simulator (the text below, including the switch\'s REAL position), as a crew would see it. SAM 3.1 segments the equipment in the photo and Muse Spark reads it. The investigator never receives this text: only the reading of the photo, which can be wrong if the picture is ambiguous.',
   'reveal.note': 'Lines, cables and equipment as they really are. The AI never sees this view.',
   'hidden.note': 'You see where equipment is, not how it is wired: that is what the AI will discover.',
   'kiosk.note': 'Each kiosk stands for the homes and shops it supplies. Click one to read its meter.',

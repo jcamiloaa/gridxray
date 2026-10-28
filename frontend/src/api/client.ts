@@ -141,7 +141,7 @@ export interface RunEvent {
   [key: string]: unknown
 }
 
-export const EVENT_KINDS = ['sealed', 'started', 'meta_inference', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
+export const EVENT_KINDS = ['sealed', 'started', 'meta_inference', 'crew_dispatched', 'crew_stage', 'field_photo', 'segmentation', 'field_reading', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
   'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done']
 
 export interface ActiveRun { id: string; source: string; seed: number; budget: number }

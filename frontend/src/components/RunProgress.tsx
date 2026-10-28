@@ -6,7 +6,8 @@ export function RunProgress({ events, total }: { events: RunEvent[]; total: numb
   const { t } = useI18n()
   const budget = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
   const experiments = events.filter((e) => e.kind === 'experiment')
-  const accepted = experiments.filter((e) => e.accepted)
+  // field-crew visits spend budget too: they show as a camera slot
+  const accepted = events.filter((e) => (e.kind === 'experiment' && e.accepted) || e.kind === 'field_reading')
   const candidates = events.filter((e) => e.kind === 'candidate')
   const series = candidates.map((c) => {
     const edges = (c.edges as { basis: string }[]) ?? []
@@ -40,6 +41,7 @@ export function RunProgress({ events, total }: { events: RunEvent[]; total: numb
         {Array.from({ length: Math.max(budget, accepted.length) }, (_, i) => {
           const e = accepted[i]
           const args = e?.args as { node?: string; switch_id?: number } | undefined
+          if (e?.kind === 'field_reading') return <span key={i} className="slot slot--done slot--crew" title={`${t('Field crew')} · ${String(e.node)}`}>📷</span>
           return <span key={i} className={`slot${e ? ' slot--done' : ''}`} title={e ? (args?.node ?? `switch ${args?.switch_id}`) : ''}>
             {e ? (args?.node?.replace('SS-', '') ?? 'SW') : ''}</span>
         })}

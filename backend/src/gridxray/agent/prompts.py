@@ -29,6 +29,10 @@ consensus shows, node by node, where these methods agree.
    suggestions are a good start). Each batch returns the results and the updated consensus. Use more
    repeats or a bigger delta when signals are close to noise; toggle_switch tests a documented switch
    state; compare_hypotheses finds the experiment that separates two candidate trees.
+   Field crews: dispatch_crew sends a crew to a site (1 unit): a photo, SAM 3.1 segmentation and a
+   reading of the photo. Use it where a picture settles what voltages cannot, above all the real
+   position of a switch whose record may be outdated (switch sites are in get_overview). The
+   orchestrator sends one crew itself early in every investigation; read its report.
 4. Interpret: watch for anomalies (a meter that never responds may be faulty; missing data; rejected
    experiments) and spend the rest of the budget on the nodes consensus still lists as uncertain.
 5. Conclude: check_hypothesis, then submit_result as `changes` to the consensus tree (only the nodes

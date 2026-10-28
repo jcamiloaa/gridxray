@@ -162,7 +162,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
     return { rows, correct: rows.filter((r) => r.ok).length, wrong: rows.filter((r) => !r.ok) }
   }, [truthEdges, edges, scenario, nameOf])
 
-  const experimentsUsed = events.filter((e) => e.kind === 'experiment' && e.accepted).length
+  const experimentsUsed = events.filter((e) => (e.kind === 'experiment' && e.accepted) || e.kind === 'field_reading').length
   const budget = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
   return { status, events, overlay, score, error, start, attach, stop, resume, runId, compare, comparison, seal, compared: truthEdges !== null, nameOf, experimentsUsed, budget }
 }

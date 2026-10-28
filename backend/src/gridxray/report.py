@@ -20,7 +20,8 @@ T = {
         "how": "How this was scored", "vs_real": "connections recovered out of the real ones",
         "seal": "Sealed topology", "seal_text": "Published before the AI saw anything: SHA-256(secret + true topology).",
         "seal_ok": "Verified: the real network matches the seal.", "seal_bad": "Seal could not be verified.",
-        "methods": "Tools the AI used", "how_text": "An independent checker with no AI compares every proposed connection with "
+        "methods": "Tools the AI used", "crews": "Field crew visits",
+        "crews_text": "Photo drawn by Muse Image from what is physically at the site, segmented by SAM 3.1 and read by Muse Spark. The investigator only received the reading.", "how_text": "An independent checker with no AI compares every proposed connection with "
                "the simulator's ground truth. The AI never saw the true topology: only equipment, records, meter readings "
                "and the results of its own experiments.", "none": "None", "rejected": "rejected",
     },
@@ -37,7 +38,8 @@ T = {
         "how": "Cómo se evaluó", "vs_real": "conexiones recuperadas de las reales",
         "seal": "Topología sellada", "seal_text": "Publicado antes de que la IA viera nada: SHA-256(secreto + topología real).",
         "seal_ok": "Verificado: la red real coincide con el sello.", "seal_bad": "No se pudo verificar el sello.",
-        "methods": "Herramientas que usó la IA", "how_text": "Un verificador independiente, sin IA, compara cada conexión propuesta con la verdad "
+        "methods": "Herramientas que usó la IA", "crews": "Visitas de cuadrilla",
+        "crews_text": "Foto generada por Muse Image a partir de lo que hay físicamente en el sitio, segmentada por SAM 3.1 y leída por Muse Spark. El investigador solo recibió la lectura.", "how_text": "Un verificador independiente, sin IA, compara cada conexión propuesta con la verdad "
                "del simulador. La IA nunca vio la topología real: solo equipos, registros, lecturas de medidores y los "
                "resultados de sus propios experimentos.", "none": "Ninguna", "rejected": "rechazado",
     },
@@ -86,6 +88,7 @@ h1{font-size:26px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 10px;border-bot
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e3e8ee;vertical-align:top}
 th{background:#f0f3f6;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5d6b7a}
 .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kv div{background:#f0f3f6;border-radius:8px;padding:8px 10px}
+.photo{width:100%;max-width:560px;border-radius:8px;display:block;margin:6px 0}.crew{margin:10px 0}
 .kv b{display:block;font-size:18px}.kv span{font-size:11px;color:#5d6b7a}
 .us td{font-weight:800;color:#0e6e8c}.ok{color:#0f7a53;font-weight:700}.bad{color:#c62828;font-weight:700}
 .note{background:#f0f3f6;border-radius:8px;padding:10px 12px;font-size:13px}.big{font-size:40px;font-weight:800;color:#0e6e8c}
@@ -171,6 +174,17 @@ def render(row, lang: str | None = None) -> str:
                    f"<b class='{'ok' if ok else 'bad'}'>{t['seal_ok'] if ok else t['seal_bad']}</b></p>")
     used = sorted({ev.get("tool") for ev in events if ev.get("kind") == "tool_call"})
     out.append(f"<h2>{t['methods']}</h2><p>{', '.join(e(str(u)) for u in used) or t['none']}</p>")
+    photos = {ev.get("visit"): ev for ev in events if ev.get("kind") == "field_photo"}
+    readings = [ev for ev in events if ev.get("kind") == "field_reading"]
+    if readings:
+        out.append(f"<h2>{t['crews']}</h2><p class='note'>{t['crews_text']}</p>")
+        for r in readings:
+            ph = photos.get(r.get("visit"), {})
+            rd = r.get("reading") or {}
+            img = f"<img class='photo' src='media/{e(str(ph['media_id']))}' alt=''>" if ph.get("media_id") else ""
+            out.append(f"<div class='crew'>{img}<p><b>{e(str(r.get('node')))}</b> · {e(str(rd.get('switch_tag') or ''))} "
+                       f"{e(str(rd.get('switch_state') or ''))} · {e(str(r.get('record_check') or ''))}<br>"
+                       f"<span class='note'>{e(str(rd.get('notes') or ''))}</span></p></div>")
     out.append(f"<h2>{t['how']}</h2><p class='note'>{t['how_text']}</p>"
                f"<h2>{t['repro']}</h2><p><code>uv run gridxray investigate --level {e(row.source)} --seed {row.seed} --budget {row.budget}</code></p>"
                "</main></body></html>")

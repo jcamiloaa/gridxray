@@ -339,7 +339,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                       )}
                     </div>
                   )}
-                  <Timeline events={run.events} running={run.status === 'running'} />
+                  <Timeline events={run.events} running={run.status === 'running'} runId={run.runId} />
                 </div>
               )}
               <div className="ws-overlay ws-legend card">

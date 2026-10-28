@@ -13,6 +13,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from gridxray import media
 from gridxray.agent.client import MetaClient
 from gridxray.agent.investigator import Event, Investigator
 from gridxray.lab import Complexity, Reference, Scenario, generate_scenario, load_reference
@@ -166,7 +167,8 @@ class RunManager:
             with SessionLocal() as db:
                 api_key = key_for_user(db, run.user_id)  # the owner's key from the app, else backend/.env
             inv = Investigator(s, budget=run.budget, client=self.client_factory(api_key=api_key),
-                               on_event=lambda e: run.push(e.to_dict()), language=run.language, t_offset=t_offset)
+                               on_event=lambda e: run.push(e.to_dict()), language=run.language, t_offset=t_offset,
+                               save_media=lambda data: media.save(run.id, data))
             run.investigator = inv
             if run.closed:  # stopped before the investigator existed
                 return

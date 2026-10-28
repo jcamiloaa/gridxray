@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import type { RunEvent } from '../api/client'
 import { useI18n } from '../i18n'
 import { AiInputDialog } from './AiInputDialog'
+import { CrewVisit } from './CrewVisit'
 import { Markdown } from './Markdown'
+
+const CREW_KINDS = new Set(['crew_dispatched', 'crew_stage', 'field_photo', 'segmentation', 'field_reading'])
 
 const TOOL_LABEL: Record<string, string> = {
   get_overview: 'Reads what the utility knows',
@@ -17,6 +20,7 @@ const TOOL_LABEL: Record<string, string> = {
   consensus: 'Ensemble: compares physics, correlation, geography and Meta AI',
   meta_inference: 'Asks Muse Wonder to infer the topology from the raw data',
   run_experiments: 'Runs a batch of experiments',
+  dispatch_crew: 'Sends a field crew',
 }
 
 interface Rejection { limit: string; value?: number; threshold?: number; safe_kw?: number }
@@ -94,7 +98,7 @@ function Experiment({ e }: { e: RunEvent }) {
 }
 
 /** Live log of the investigation: Spark's reasoning, experiments, hypotheses and Wonder's reviews. */
-export function Timeline({ events, running }: { events: RunEvent[]; running: boolean }) {
+export function Timeline({ events, running, runId = null }: { events: RunEvent[]; running: boolean; runId?: string | null }) {
   const { t } = useI18n()
   const end = useRef<HTMLLIElement>(null)
   const [audit, setAudit] = useState(false)
@@ -104,6 +108,8 @@ export function Timeline({ events, running }: { events: RunEvent[]; running: boo
       {audit && <AiInputDialog events={events} onClose={() => setAudit(false)} />}
       {events.map((e, i) => {
         switch (e.kind) {
+          case 'crew_dispatched':
+            return <CrewVisit key={i} runId={runId} events={events.filter((x) => x.visit === e.visit && CREW_KINDS.has(x.kind))} />
           case 'sealed':
             return (
               <li key={i} className="tl tl--seal"><span className="tl__icon">🔒</span><div>

@@ -42,6 +42,28 @@ class MetaClient:
             kwargs["previous_response_id"] = previous_response_id
         return self._client.responses.create(**kwargs)
 
+    # ------------------------------------------------------------ media models
+
+    def generate_image(self, prompt: str, model: str = "muse-image-1.0") -> bytes:
+        """Muse Image: one picture from a text prompt, as raw image bytes."""
+        import base64
+
+        r = self._client.images.generate(model=model, prompt=prompt, n=1)
+        return base64.b64decode(r.data[0].b64_json)
+
+    def segment(self, prompt: str, image_url: str, model: str = "sam-3.1") -> str:
+        """SAM 3.1: boxes and masks for every match of a short noun phrase, as SAM's token text."""
+        content = [{"type": "input_text", "text": prompt}, {"type": "input_image", "image_url": image_url}]
+        r = self._client.responses.create(model=model, input=[{"type": "message", "role": "user", "content": content}],
+                                          metadata={"include_confidence": "true"})
+        return r.output_text or ""
+
+    def look(self, model: str, question: str, image_url: str, instructions: str, reasoning_effort: str = "low") -> Response:
+        """A multimodal question about one image (Muse Spark sees the photo, nothing else)."""
+        content = [{"type": "input_text", "text": question}, {"type": "input_image", "image_url": image_url}]
+        return self._client.responses.create(model=model, input=[{"type": "message", "role": "user", "content": content}],
+                                             instructions=instructions, reasoning={"effort": reasoning_effort}, store=False)
+
 
 def reasoning_summary(response: Response) -> str:
     """Join the reasoning summaries of a response; empty if the model produced none."""

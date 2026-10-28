@@ -19,6 +19,22 @@ class ScriptedClient:
         self.turn = 0
         self.wonder_calls = 0
 
+    # media models: a tiny picture, one segmented object, a fixed reading
+    def generate_image(self, prompt, model="muse-image-1.0"):
+        import io
+
+        from PIL import Image
+
+        buf = io.BytesIO()
+        Image.new("RGB", (64, 48), (120, 120, 120)).save(buf, "PNG")
+        return buf.getvalue()
+
+    def segment(self, prompt, image_url, model="sam-3.1"):
+        return "<0f>0<|box;x1=4;y1=4;x2=20;y2=30;w=64;h=48;c=0.9|><|mask;x=0;y=0;data=2,2,~bad|>" if prompt == "electrical box" else ""
+
+    def look(self, model, question, image_url, instructions, reasoning_effort="low"):
+        return SimpleNamespace(output_text='{"switch_present": true, "switch_state": "closed", "confidence": 0.8}', usage=None)
+
     def respond(self, model, input, **kw):
         if model == settings.wonder_model:
             self.wonder_calls += 1

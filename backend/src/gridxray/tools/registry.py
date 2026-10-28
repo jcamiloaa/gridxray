@@ -74,6 +74,14 @@ TOOLS: list[dict] = [
                            "delta_kw": {"type": "number", "description": f"kW to add (default {DEFAULT_DELTA_KW:.0f})."},
                            "switch_id": {"type": "integer"}, "repeats": {"type": "integer"}}}}},
         ["experiments"]),
+    _fn("dispatch_crew",
+        "Send a field crew to a site (costs 1 budget unit). They photograph it; SAM 3.1 segments the equipment "
+        "and a vision model reads the photo: mount, line type and, where a switch is installed, its REAL position "
+        "(records may be outdated). Use it where a photo settles what voltages cannot, e.g. a switch's state.",
+        {"node": {"type": "string", "description": "Site to visit (node name; switch sites are in get_overview)."},
+         "switch_id": {"type": "integer", "description": "Optional: the switch to inspect, when a site has several."},
+         "reason": {"type": "string", "description": "Why this visit, one sentence."}},
+        ["node", "reason"]),
     _fn("get_evidence",
         "Summary of all load experiments so far: for each perturbed node, its electrical depth "
         "(pu per MW) and the metered nodes the data places downstream of it. Also flags meters "
@@ -143,6 +151,10 @@ class ToolBox:
         self.notes: list[dict] = []
         self._passive: Passive | None = None
         self.meta_tree = None  # set by the orchestrator when the Meta model has inferred a tree
+        from gridxray.field import switch_sites
+
+        self.switch_site = switch_sites(scenario)  # GIS: where each switch is installed (not how it is wired)
+        self.field_findings: list[dict] = []
 
     # ------------------------------------------------------------ plumbing
 
@@ -192,7 +204,8 @@ class ToolBox:
                  **({"device": devices[n.id]} if n.id in devices else {})}
                 for n in self.obs.nodes
             ],
-            "switches": [{"id": s.id, "kind": s.kind, "documented": "closed" if s.documented_closed else "open"}
+            "switches": [{"id": s.id, "kind": s.kind, "documented": "closed" if s.documented_closed else "open",
+                          **({"site": self.name[self.switch_site[s.id]]} if s.id in self.switch_site else {})}
                          for s in self.obs.switches if s.kind in ("tie", "sectionalizer", "recloser")],
             "hour": self.obs.hour,
             "budget_remaining": self.engine.remaining,

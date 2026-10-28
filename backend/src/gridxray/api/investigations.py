@@ -5,7 +5,7 @@ import json
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
 
@@ -136,6 +136,18 @@ def seal(run_id: str, user: CurrentUser, db: DbSession, session: Session = None)
     sealed = next((e for e in (live.since(0) if live else row.events) if e.get("kind") == "sealed"), {})
     return {"algorithm": ALGORITHM, "nonce": row.seal_nonce, "canonical": text,
             "published_commitment": sealed.get("commitment"), "recomputed": commitment(row.seal_nonce, text)}
+
+
+@router.get("/{run_id}/media/{media_id}")
+def media_file(run_id: str, media_id: str, user: CurrentUser, db: DbSession, session: Session = None) -> Response:
+    """A field-crew photo of this investigation."""
+    from gridxray import media
+
+    _owned(db, run_id, user, session)
+    m = media.load(run_id, media_id)
+    if m is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "No such picture")
+    return Response(m.data, media_type=m.content_type, headers={"Cache-Control": "private, max-age=86400"})
 
 
 @router.get("/{run_id}/report", response_class=HTMLResponse)

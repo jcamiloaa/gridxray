@@ -4,6 +4,7 @@ import json
 import threading
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -13,7 +14,7 @@ from gridxray.agent.client import MetaClient, reasoning_summary
 from gridxray.agent.prompts import SPARK_INSTRUCTIONS, WONDER_INSTRUCTIONS, initial_task
 from gridxray.config import Settings, settings
 from gridxray.lab import Scenario
-from gridxray.pricing import add_usage, summarize
+from gridxray.pricing import add_images, add_usage, summarize
 from gridxray.tools import TOOLS, ToolBox
 from gridxray.tools.registry import ToolError, dumps
 
@@ -21,7 +22,8 @@ MAX_RECOVERIES = 3  # times the conversation may be rebuilt after the server dro
 STALL_STEPS = 8  # turns without an accepted experiment before Wonder is called in
 UNCERTAIN_REVIEW_RATIO = 0.3
 MIDPOINT_INFERRED_RATIO = 0.35  # unconfirmed share at half budget that calls Wonder in
-META_WAIT_SECONDS = 150  # how long submit_result waits for Wonder's background inference
+META_WAIT_SECONDS = 150
+READING_CONFIDENCE = 0.7  # below this a photo reading is "unclear", never "record outdated"  # how long submit_result waits for Wonder's background inference
 AUTO_TOOLS = ("get_overview", "passive_correlation", "geographic_prior", "consensus", "suggest_experiments")
 
 
@@ -62,8 +64,10 @@ class Investigation:
 class Investigator:
     def __init__(self, scenario: Scenario, budget: int | None = None, cfg: Settings = settings,
                  on_event: Callable[[Event], None] | None = None, client: MetaClient | None = None,
-                 language: str = "en", t_offset: float = 0.0) -> None:
+                 language: str = "en", t_offset: float = 0.0, save_media: Callable[[bytes], str] | None = None) -> None:
         self.cfg = cfg
+        self.scenario = scenario  # the orchestrator's side: field crews need what is physically at a site
+        self.save_media = save_media
         self.client = client or MetaClient(cfg)
         self.run = Investigation(ToolBox(scenario, budget or cfg.experiment_budget))
         self.on_event = on_event
@@ -71,6 +75,7 @@ class Investigator:
         self.t0 = time.perf_counter() - t_offset
         self.resumed_from: list[dict] | None = None
         self._meta_thread: threading.Thread | None = None
+        self._auto_crew = False
         self._lock = threading.Lock()  # usage is updated by Spark's loop and by Wonder's background inference
 
     def instructions(self) -> str:
@@ -106,6 +111,11 @@ class Investigator:
                 tb.notes.append({"statement": e.get("statement"), "confidence": e.get("confidence"), "nodes": e.get("nodes", [])})
             elif kind == "review":
                 self.run.reviews += 1
+            elif kind == "field_reading":
+                node = tb.id.get(e.get("node", ""))
+                tb.engine.history.append(ExperimentRecord(len(tb.engine.history) + 1, {"type": "field_visit", "node": node},
+                                                          True, "field visit", 1))
+                tb.field_findings.append({"site": e.get("node"), "reading": e.get("reading"), "record_check": e.get("record_check")})
             elif kind == "meta_inference" and e.get("edges"):
                 from gridxray.tools.reconstruct import Candidate
 
@@ -204,6 +214,107 @@ class Investigator:
         return {"accepted": True, "running_in_background": True,
                 "hint": "Keep experimenting; its tree joins consensus (meta_vote: true) when ready."}
 
+    # ------------------------------------------------------------ field crews
+
+    def add_images(self, model: str, n: int = 1) -> None:
+        with self._lock:
+            add_images(self.run.usage, model, n)
+            summary = self.run.usage_summary
+        self.emit("usage", **summary)
+
+    def crew_target(self) -> tuple[str, int | None]:
+        """Where the orchestrator sends its own crew: a switch (tie first), else a node the methods disagree on."""
+        tb = self.run.toolbox
+        kinds = {s.id: s.kind for s in tb.obs.switches}
+        sites = sorted(tb.switch_site.items(), key=lambda kv: (kinds.get(kv[0]) != "tie", kv[0]))
+        if sites:
+            return tb.name[sites[0][1]], sites[0][0]
+        uncertain = tb.ensemble().uncertain
+        return (tb.name[min(uncertain)] if uncertain else tb.obs.nodes[-1].name), None
+
+    def dispatch_crew(self, node: str, reason: str, auto: bool = False, switch_id: int | None = None) -> dict:
+        """Photo (Muse Image, from what is physically there) -> SAM 3.1 segmentation -> Muse Spark reading."""
+        from gridxray.field import (
+            READER_INSTRUCTIONS,
+            SAM_PROMPTS,
+            data_url,
+            parse_reading,
+            parse_sam,
+            photo_prompt,
+            site_facts,
+            to_jpeg,
+        )
+        from gridxray.sim import ExperimentRecord
+
+        tb = self.run.toolbox
+        if switch_id is not None and switch_id in tb.switch_site:
+            node = tb.name[tb.switch_site[switch_id]]  # the switch decides the site
+        elif switch_id is not None:
+            switch_id = None
+        if node not in tb.id or tb.id[node] not in {n.id for n in tb.obs.nodes}:
+            return {"accepted": False, "error": f"unknown site {node!r}"}
+        if tb.engine.remaining <= 0:
+            return {"accepted": False, "message": "experiment budget exhausted: no crew available"}
+        visit = len(tb.field_findings) + 1
+        nid = tb.id[node]
+        self.emit("crew_dispatched", visit=visit, node=node, reason=reason, auto=auto)
+        try:
+            facts = site_facts(self.scenario, nid, switch_id)
+            prompt = photo_prompt(facts)
+            self.emit("crew_stage", visit=visit, stage="photo", model="muse-image-1.0")
+            t = time.perf_counter()
+            jpeg, w, h = to_jpeg(self.client.generate_image(prompt))
+            self.add_images("muse-image-1.0")
+            media_id = self.save_media(jpeg) if self.save_media else None
+            self.emit("field_photo", visit=visit, node=node, media_id=media_id, w=w, h=h, prompt=prompt,
+                      site=facts.public(), seconds=round(time.perf_counter() - t, 1))
+            if self.run.stopped:
+                return {"accepted": False, "message": "stopped"}
+
+            self.emit("crew_stage", visit=visit, stage="segment", model="sam-3.1")
+            t, url, objects = time.perf_counter(), data_url(jpeg), []
+            prompts = SAM_PROMPTS[facts.mount if facts.mount in SAM_PROMPTS else "pole"]
+            with ThreadPoolExecutor(len(prompts)) as pool:  # one SAM call per phrase, all at once
+                texts = list(pool.map(lambda phrase: self.client.segment(phrase, url), prompts))
+            for (phrase, label), text in zip(prompts.items(), texts, strict=True):
+                objects += sorted(parse_sam(text, label), key=lambda o: -o["score"])[:4]
+            self.add_images("sam-3.1", len(prompts))
+            self.emit("segmentation", visit=visit, node=node, media_id=media_id, w=w, h=h, objects=objects,
+                      prompts=prompts, seconds=round(time.perf_counter() - t, 1))
+            if self.run.stopped:
+                return {"accepted": False, "message": "stopped"}
+
+            self.emit("crew_stage", visit=visit, stage="read", model=self.cfg.spark_model)
+            t = time.perf_counter()
+            seen = [{"what": o["label"], "box": o["box"], "score": o["score"]} for o in objects]
+            question = (f"Photo of site {node} taken by our crew ({w}x{h} px). SAM 3.1 segmented these objects "
+                        f"(boxes in pixels): {json.dumps(seen)}. What does the photo show?")
+            resp = self.client.look(self.cfg.spark_model, question, url, READER_INSTRUCTIONS)
+            self.add_usage(self.cfg.spark_model, resp.usage)
+            reading = parse_reading(resp.output_text)
+        except Exception as e:  # noqa: BLE001 - a failed visit costs nothing and the investigation goes on
+            self.emit("error", message=f"Field visit to {node} failed ({type(e).__name__}: {e}); no budget spent.")
+            return {"accepted": False, "error": f"field visit failed: {type(e).__name__}"}
+
+        sid = facts.switch_id  # the switch in the picture: its id is on the GIS record, its position is not
+        documented = next((("closed" if s.documented_closed else "open") for s in tb.obs.switches if s.id == sid), None)
+        seen_state = reading.get("switch_state")
+        sure = float(reading.get("confidence") or 0) >= READING_CONFIDENCE  # an unsure reading never flags a record
+        check = ("no switch on record here" if documented is None else
+                 "photo unclear" if seen_state not in ("open", "closed") or not sure else
+                 "matches the records" if seen_state == documented else
+                 f"RECORD OUTDATED: records say {documented}, the photo shows {seen_state}")
+        tb.engine.history.append(ExperimentRecord(len(tb.engine.history) + 1, {"type": "field_visit", "node": nid},
+                                                  True, "field visit", 1))
+        tb.field_findings.append({"site": node, "reading": reading, "record_check": check})
+        self.emit("field_reading", visit=visit, node=node, reading=reading, switch_id=sid, documented=documented,
+                  record_check=check, seconds=round(time.perf_counter() - t, 1), budget_remaining=tb.engine.remaining)
+        counts: dict[str, int] = {}
+        for o in objects:
+            counts[o["label"]] = counts.get(o["label"], 0) + 1
+        return {"accepted": True, "site": node, "segmented": counts, "reading": reading, "record_check": check,
+                "budget_remaining": tb.engine.remaining}
+
     def wait_meta(self, timeout: float = META_WAIT_SECONDS) -> None:
         end = time.monotonic() + timeout
         while (self._meta_thread is not None and self._meta_thread.is_alive() and not self.run.stopped
@@ -223,6 +334,10 @@ class Investigator:
             if name == "meta_inference":
                 out = self.meta_inference("requested by Spark")
                 self.emit("tool_result", tool=name, ok=True, output=out)
+                return out
+            if name == "dispatch_crew":
+                out = self.dispatch_crew(args.get("node", ""), args.get("reason", ""), switch_id=args.get("switch_id"))
+                self.emit("tool_result", tool=name, ok="error" not in out, output=out)
                 return out
             if name == "request_review":
                 return {"reviewer_advice": self.review(args.get("reason", ""), "requested by Spark")}
@@ -365,6 +480,16 @@ class Investigator:
                 outputs.append({"type": "function_call_output", "call_id": c.call_id, "output": dumps(out)})
             if tb.result is not None or self.run.stopped:
                 break
+
+            # every investigation checks at least one site in the field (photo + SAM 3.1 + reading)
+            if (not tb.field_findings and not self._auto_crew and tb.engine.remaining > 0
+                    and (self.run.experiments_used >= 1 or self.run.steps >= 3)):
+                self._auto_crew = True
+                target, target_switch = self.crew_target()
+                crew = self.dispatch_crew(target, "Orchestrator: every investigation verifies at least one site in the field.",
+                                          auto=True, switch_id=target_switch)
+                if crew.get("accepted"):
+                    outputs.append({"role": "user", "content": "A field crew visited a site for you (1 budget unit):\n" + dumps(crew)})
 
             # Wonder's own inference starts by itself at half budget and runs while Spark keeps going
             if self._meta_thread is None and self.run.experiments_used >= max(2, tb.engine.budget // 2):
