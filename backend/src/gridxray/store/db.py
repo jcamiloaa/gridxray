@@ -12,10 +12,11 @@ class Base(DeclarativeBase):
 
 
 def _make_engine(url: str):
-    if url.startswith("sqlite"):  # tests: one shared in-memory database
-        return create_engine(
-            url, connect_args={"check_same_thread": False}, poolclass=StaticPool,
-        )
+    if url.startswith("sqlite"):  # tests
+        if ":memory:" in url:  # one shared in-memory database
+            return create_engine(url, connect_args={"check_same_thread": False}, poolclass=StaticPool)
+        # a file gives each thread its own connection, so background runs never share one with the test
+        return create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
     return create_engine(url, pool_pre_ping=True)
 
 
@@ -37,5 +38,5 @@ def init_db() -> None:
         from sqlalchemy import text
 
         with engine.begin() as conn:
-            for ddl in ("session_key VARCHAR(32)", "language VARCHAR(5) DEFAULT 'en'", "usage JSON"):
+            for ddl in ("session_key VARCHAR(32)", "language VARCHAR(5) DEFAULT 'en'", "usage JSON", "seal_nonce VARCHAR(64)"):
                 conn.execute(text(f"ALTER TABLE investigations ADD COLUMN IF NOT EXISTS {ddl}"))

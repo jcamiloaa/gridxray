@@ -127,7 +127,6 @@ export interface ScoreRow {
 
 export interface RunScore {
   gridxray: ScoreRow | null
-  baselines: (ScoreRow & { name: string })[]
   steps?: number
   reviews?: number
   tokens?: number
@@ -142,7 +141,7 @@ export interface RunEvent {
   [key: string]: unknown
 }
 
-export const EVENT_KINDS = ['started', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
+export const EVENT_KINDS = ['sealed', 'started', 'meta_inference', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
   'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done']
 
 export interface ActiveRun { id: string; source: string; seed: number; budget: number }
@@ -180,6 +179,8 @@ export interface UsageReport {
 export const listRuns = () => request<RunSummary[]>('/investigations')
 export const getUsage = () => request<UsageReport>('/investigations/usage')
 export const stopRun = (id: string) => request<{ stopping: boolean }>(`/investigations/${id}/stop`, { method: 'POST' })
+export interface SealReveal { algorithm: string; nonce: string; canonical: string; published_commitment: string | null; recomputed: string }
+export const getSeal = (id: string) => request<SealReveal>(`/investigations/${id}/seal`)
 export const resumeRun = (id: string) => request<ActiveRun>(`/investigations/${id}/resume`, { method: 'POST' })
 
 export function sourceOf(s: string): ScenarioSource {

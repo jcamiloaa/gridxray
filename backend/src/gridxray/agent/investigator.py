@@ -148,11 +148,31 @@ class Investigator:
 
         tb = self.run.toolbox
         if parent is None:
-            cand = best_tree(tb.obs, tb.evidence())
-            parent, basis = cand.parent, cand.basis
+            ens = tb.ensemble()
+            physics = best_tree(tb.obs, tb.evidence())
+            parent = ens.parent
+            basis = {n: ("measured" if physics.basis.get(n) == "measured" and physics.parent[n] == parent[n]
+                         else "uncertain" if n in ens.uncertain else "inferred") for n in parent}
         else:
             basis = {c: ("uncertain" if c in (uncertain or []) else "proposed") for c in parent}
         self.emit("candidate", why=why, edges=[{"child": c, "parent": p, "basis": basis[c]} for c, p in parent.items()])
+
+    def meta_inference(self) -> dict:
+        """Fourth method: Muse Wonder infers the topology from the raw experiment data (one ensemble vote)."""
+        from gridxray.agent.meta_infer import meta_infer
+
+        tb = self.run.toolbox
+        self.emit("review_started", trigger="meta inference", reason="Muse Wonder infers the topology from the raw data")
+        cand, info = meta_infer(self.client, self.cfg.wonder_model, self.cfg.wonder_reasoning_effort, tb.obs,
+                                tb.evidence(), self.language)
+        add_usage(self.run.usage, self.cfg.wonder_model, info.pop("usage"))
+        self.emit("usage", **self.run.usage_summary)
+        tb.meta_tree = cand
+        self.emit("meta_inference", nodes_answered=info["nodes_answered"], uncertain=info["uncertain"],
+                  rationale=info["rationale"], reasoning=info["reasoning"],
+                  edges=[{"child": c, "parent": p, "basis": cand.basis[c]} for c, p in cand.parent.items()])
+        return {"accepted": True, "nodes_answered": info["nodes_answered"], "rationale": info["rationale"],
+                "hint": "Its tree now votes in `consensus`."}
 
     # ------------------------------------------------------------ tool dispatch
 
@@ -164,6 +184,8 @@ class Investigator:
             return {"error": f"invalid JSON arguments: {e}"}
         self.emit("tool_call", tool=name, args=args)
         try:
+            if name == "meta_inference":
+                return self.meta_inference()
             if name == "request_review":
                 return {"reviewer_advice": self.review(args.get("reason", ""), "requested by Spark")}
             if name == "submit_result":
@@ -189,7 +211,7 @@ class Investigator:
         elif name == "submit_result" and out.get("accepted"):
             self.emit_candidate("final proposal", tb.result["parent"], tb.result["uncertain"])
             self.emit("result", summary=args.get("summary", ""), uncertain=args.get("uncertain", []))
-        self.emit("tool_result", tool=name, ok="error" not in out)
+        self.emit("tool_result", tool=name, ok="error" not in out, output=out)  # full audit trail of what the AI saw
         return out
 
     def fallback_result(self, why: str) -> None:

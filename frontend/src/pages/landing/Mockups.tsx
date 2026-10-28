@@ -152,9 +152,9 @@ export function ReviewMock() {
 
 export function VerifyMock() {
   const rows = [
-    { label: 'Links correct', ai: 96, base: 71 },
-    { label: 'Switch states correct', ai: 100, base: 62 },
-    { label: 'Experiments used', ai: 58, base: 100, invert: true },
+    { label: 'Links recovered', found: 25, real: 26 },
+    { label: 'Switch states correct', found: 4, real: 4 },
+    { label: 'Errors flagged uncertain', found: 1, real: 1 },
   ]
   return (
     <AppWindow path="verify" title="Scorecard · Run 014"
@@ -162,22 +162,22 @@ export function VerifyMock() {
       <div className="lx-kpis">
         <Kpi label="Topology accuracy" value="96%" sub="25 of 26 links" tone="accent" />
         <Kpi label="Uncertain" value="1" sub="flagged, not guessed" />
-        <Kpi label="Experiments" value="7" sub="baseline: 12" />
+        <Kpi label="Experiments" value="7" sub="of 8 budget" />
         <Kpi label="Records wrong" value="1" sub="T-2 found closed" tone="violet" />
       </div>
       <div className="lx-panel">
         <div className="lx-panel__head">
-          <span>Agent vs non-AI baseline</span>
-          <span className="lx-legend"><i className="is-ai" />GridXray <i />Baseline</span>
+          <span>Found vs the real network</span>
+          <span className="lx-legend"><i className="is-ai" />GridXray <i />Real network</span>
         </div>
         {rows.map((r) => (
           <div key={r.label} className="lx-cmp">
             <span>{r.label}</span>
             <div className="lx-cmp__bars">
-              <span className="lx-bar"><i className="is-lead" style={{ width: `${r.ai}%` }} /></span>
-              <span className="lx-bar"><i style={{ width: `${r.base}%` }} /></span>
+              <span className="lx-bar"><i className="is-lead" style={{ width: `${(100 * r.found) / r.real}%` }} /></span>
+              <span className="lx-bar"><i style={{ width: '100%' }} /></span>
             </div>
-            <b>{r.invert ? '−42%' : `+${r.ai - r.base} pt`}</b>
+            <b>{r.found}/{r.real}</b>
           </div>
         ))}
       </div>

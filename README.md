@@ -1,6 +1,6 @@
 # GridXray — Physical AI for Utilities
 
-GridXray uses Meta's **Muse Spark** to discover hidden connections in simulated electrical distribution networks. The agent reads measurements, formulates hypotheses about which nodes are connected, designs virtual experiments to tell those hypotheses apart, and progressively reconstructs the network. When several topologies remain consistent with the data, or the investigation stalls, **Muse Wonder** steps in as a second-opinion investigator: it reviews the evidence and proposes a different line of inquiry. An independent verifier, with no LLM involved, scores the result against the ground truth and against a non-AI baseline.
+GridXray uses Meta's **Muse Spark** to discover hidden connections in simulated electrical distribution networks. The agent reads measurements, formulates hypotheses about which nodes are connected, designs virtual experiments to tell those hypotheses apart, and progressively reconstructs the network. When several topologies remain consistent with the data, or the investigation stalls, **Muse Wonder** steps in as a second-opinion investigator: it reviews the evidence and proposes a different line of inquiry. An independent verifier, with no LLM involved, scores the result against the real network, which is sealed with a SHA-256 commitment before the AI starts and re-checked in the browser afterwards. The investigation combines four sources of evidence: physics experiments, traditional AI (24 h correlation clustering and a Chow-Liu tree), geography, and Meta AI (Muse Wonder infers the topology from the raw data as one vote in an ensemble).
 
 **Initial focus:** medium-voltage distribution networks, using physics-based simulations in pandapower. Everything runs in simulation: no real grids, sensors or SCADA systems.
 
@@ -21,7 +21,7 @@ gridxray/
 │   │   ├── sim/              # experiment engine (constrained virtual interventions)
 │   │   ├── tools/            # tools exposed to the agents (observable view only)
 │   │   ├── agent/            # Meta Model API client, Spark investigator loop, Wonder reviewer
-│   │   ├── verify/           # metrics vs ground truth, non-AI baselines, benchmark
+│   │   ├── verify/           # metrics vs the real network, reference procedures, benchmark
 │   │   ├── store/            # Postgres models and session (users; runs and experiments next)
 │   │   ├── auth/             # password hashing (argon2), session tokens, demo account
 │   │   ├── api/              # REST + SSE, auth routes
@@ -118,7 +118,7 @@ uv run gridxray investigate --level easy --seed 1 --budget 8 --log run.json   # 
 
 ## Built during the hackathon
 
-All code in this repository was written during the event (Oct 26 – Nov 4, 2026); see the git history. This includes the scenario generator, experiment engine, agent tools and loop, verifier, baselines, API and web UI.
+All code in this repository was written during the event (Oct 26 – Nov 4, 2026); see the git history. This includes the scenario generator, experiment engine, agent tools and loop, verifier, hybrid methods, seal, API and web UI.
 
 ## Third-party
 

@@ -46,9 +46,17 @@ def test_run_streams_events_and_scores(client):
     body = wait_done(client, run_id)
     assert body["status"] == "done"
     kinds = [e["kind"] for e in body["events"]]
-    assert kinds[0] == "started" and kinds[-1] == "done"
+    assert kinds[0] == "sealed" and kinds[1] == "started" and kinds[-1] == "done"
     assert {"candidate", "experiment", "review", "result"} <= set(kinds)
-    assert body["score"]["gridxray"]["f1"] > 0 and len(body["score"]["baselines"]) == 4
+    assert body["score"]["gridxray"]["f1"] > 0  # scored against the real network
+
+    # the seal published before the run opens afterwards and matches the hidden topology
+    sealed = body["events"][0]
+    assert len(sealed["commitment"]) == 64 and "between" not in str(sealed["ai_input"])
+    seal = client.get(f"/investigations/{run_id}/seal").json()
+    assert seal["recomputed"] == seal["published_commitment"] == sealed["commitment"]
+    # every tool result the AI received is in the audit trail
+    assert all("output" in e for e in body["events"] if e["kind"] == "tool_result")
 
     with client.stream("GET", f"/investigations/{run_id}/events") as s:  # finished runs replay from the DB copy
         text = "".join(s.iter_text())
@@ -86,6 +94,5 @@ def test_report_and_evidence(client):
     wait_done(client, run_id)
     html = client.get(f"/investigations/{run_id}/report").text
     assert "Informe de investigación GridXray" in html and "Resultado verificado" in html
-    assert "Mismo presupuesto, sin IA" in html  # every baseline is in the report
     ev = client.get("/evidence").json()
     assert len(ev["guarantees"]) >= 5 and "metric" in ev["scoring"]

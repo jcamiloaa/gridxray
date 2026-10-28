@@ -10,6 +10,11 @@ from pathlib import Path
 RESULTS = Path(__file__).resolve().parents[2] / "results"
 
 GUARANTEES = [
+    {"claim": "The topology is sealed before every investigation",
+     "how": "Before the AI sees anything, the server publishes SHA-256(secret + true topology). When the run ends the "
+            "secret is revealed and your browser recomputes the hash from the revealed network: a match proves the "
+            "network was fixed beforehand and never shown to the AI.",
+     "tests": ["test_run_streams_events_and_scores"]},
     {"claim": "The AI never sees the true topology",
      "how": "Agents only receive the observable view (equipment, records, meter readings, city blocks) and experiment results. "
             "The wiring stays inside the simulator.",
@@ -34,15 +39,18 @@ GUARANTEES = [
 ]
 
 SCORING = {
-    "metric": "F1 over connections: the harmonic mean of precision (share of proposed connections that really exist) and "
-              "recall (share of real connections found). 1.00 = the exact network.",
-    "baselines": {
-        "geographic": "GIS + one voltage snapshot, no experiments: each kiosk hangs from its most upstream-looking neighbour.",
-        "passive": "24 hourly voltage snapshots, no experiments: neighbours whose voltages move together share a feeder.",
-        "heuristic": "Same experiment budget as the AI, no AI: probe the farthest blocks first, then a fixed random sample.",
-        "exhaustive": "Perturb every secondary substation once (one experiment per node), then reconstruct.",
+    "metric": "Every investigation is scored against the real network hidden in the simulator: how many of the true "
+              "connections GridXray recovered (correct / real), F1 (balance of correct proposals and connections found), "
+              "how many it got wrong, and how many of those it honestly flagged as uncertain.",
+    "methods": {
+        "Physics (non-AI)": "Virtual experiments on the pandapower model and a fit of the measured voltage drops.",
+        "Traditional AI": "24 h correlation analysis: hierarchical clustering into feeders and a Chow-Liu tree; an "
+                          "ensemble that measures where methods agree.",
+        "Geography (non-AI)": "GIS city blocks and a voltage snapshot as a prior.",
+        "Meta AI": "Muse Spark orchestrates the investigation and decides every experiment; Muse Wonder infers the "
+                   "topology from the raw data (one ensemble vote) and reviews the evidence.",
     },
-    "calibration": "Of the connections the AI gets wrong, how many it flagged as uncertain.",
+    "calibration": "Of the connections GridXray gets wrong, how many it flagged as uncertain.",
 }
 
 AREAS = {"test_lab": "Virtual lab", "test_sim_tools": "Experiments, tools and agent", "test_investigations_api": "Live investigations API",
@@ -78,21 +86,20 @@ def _load(name: str):
 
 
 def benchmark_summary(rows: list[dict]) -> list[dict]:
-    methods = ["gridxray", "heuristic", "exhaustive", "passive", "geographic"]
+    """Per level: how much of the real topology GridXray recovered."""
     out = []
     for level in dict.fromkeys(r["level"] for r in rows):
-        rs = [r for r in rows if r["level"] == level]
-        row = {"level": level, "runs": len(rs), "budget": rs[0]["budget"]}
-        for m in methods:
-            vals = [r[m] for r in rs if r.get(m)]
-            if vals:
-                row[m] = {"f1": round(sum(v["f1"] for v in vals) / len(vals), 3),
-                          "experiments": round(sum(v["experiments"] for v in vals) / len(vals), 1)}
-        g = [r["gridxray"] for r in rs if r.get("gridxray")]
-        if g:
-            wrong = sum(v["wrong_edges"] for v in g)
-            row["calibration"] = round(sum(v["wrong_and_flagged"] for v in g) / wrong, 2) if wrong else 1.0
-        out.append(row)
+        gs = [r["gridxray"] for r in rows if r["level"] == level and r.get("gridxray")]
+        if not gs:
+            continue
+        correct, total = sum(g["correct_edges"] for g in gs), sum(g["total_edges"] for g in gs)
+        wrong, flagged = sum(g["wrong_edges"] for g in gs), sum(g["wrong_and_flagged"] for g in gs)
+        out.append({"level": level, "runs": len(gs), "budget": rows[0]["budget"] if rows else 0,
+                    "budget_by_level": next(r["budget"] for r in rows if r["level"] == level),
+                    "correct": correct, "total": total, "accuracy": round(correct / total, 3),
+                    "f1": round(sum(g["f1"] for g in gs) / len(gs), 3),
+                    "experiments": round(sum(g["experiments"] for g in gs) / len(gs), 1),
+                    "wrong": wrong, "flagged": flagged, "calibration": round(flagged / wrong, 2) if wrong else 1.0})
     return out
 
 

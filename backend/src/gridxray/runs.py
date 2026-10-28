@@ -17,9 +17,9 @@ from gridxray.agent.client import MetaClient
 from gridxray.agent.investigator import Event, Investigator
 from gridxray.lab import Complexity, Reference, Scenario, generate_scenario, load_reference
 from gridxray.pricing import summarize
+from gridxray.seal import ALGORITHM, canonical, commitment, new_nonce
 from gridxray.store.db import SessionLocal
 from gridxray.store.models import InvestigationRun
-from gridxray.verify.baselines import exhaustive, geographic, heuristic, passive
 from gridxray.verify.score import score
 
 FLUSH_EVERY = 2.0  # seconds between writes of the live event log
@@ -42,6 +42,7 @@ class LiveRun:
     events: list[dict] = field(default_factory=list)
     score: dict | None = None
     usage: dict | None = None
+    seal_nonce: str | None = field(default=None, repr=False)
     investigator: Investigator | None = field(default=None, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _flushed: float = 0.0
@@ -100,8 +101,10 @@ class RunManager:
         run = LiveRun(uuid.uuid4().hex, user_id, source, seed, budget, session, language)
         self.runs[run.id] = run
         with SessionLocal() as db:
+            run.seal_nonce = new_nonce()
             db.add(InvestigationRun(id=run.id, user_id=user_id, source=source, seed=seed, budget=budget,
-                                    status="running", events=[], session_key=session, language=language))
+                                    status="running", events=[], session_key=session, language=language,
+                                    seal_nonce=run.seal_nonce))
             db.commit()
         self._spawn(run)
         return run
@@ -109,7 +112,7 @@ class RunManager:
     def resume(self, row: InvestigationRun) -> LiveRun:
         """Continue a run that stopped mid-way (restart, failure or user stop) from its event log."""
         run = LiveRun(row.id, row.user_id, row.source, row.seed, row.budget, row.session_key,
-                      row.language or "en", events=list(row.events or []), usage=row.usage)
+                      row.language or "en", events=list(row.events or []), usage=row.usage, seal_nonce=row.seal_nonce)
         run.status = "running"
         self.runs[run.id] = run
         run.flush()
@@ -148,13 +151,18 @@ class RunManager:
             inv = Investigator(s, budget=run.budget, client=self.client_factory(),
                                on_event=lambda e: run.push(e.to_dict()), language=run.language, t_offset=t_offset)
             run.investigator = inv
+            if not any(e.get("kind") == "sealed" for e in run.events) and run.seal_nonce:
+                # commit to the hidden topology before the AI sees anything, and publish what it will see
+                from gridxray.agent.prompts import SPARK_INSTRUCTIONS
+
+                run.push({"t": round(time.perf_counter() - t0, 2), "kind": "sealed", "algorithm": ALGORITHM,
+                          "commitment": commitment(run.seal_nonce, canonical(s)),
+                          "ai_input": inv.run.toolbox.t_get_overview(), "instructions": SPARK_INSTRUCTIONS,
+                          "tools": [tool["name"] for tool in __import__("gridxray.tools", fromlist=["TOOLS"]).TOOLS]})
             if restore and run.events:
                 inv.restore(run.events)
             result = inv.investigate()
-            baselines = []
-            for f in (geographic, passive, lambda sc: heuristic(sc, run.budget), exhaustive):
-                b = f(make_scenario(run.source, run.seed))
-                baselines.append({"name": b.name, **score(s, b.candidate.parent, experiments=b.experiments).to_dict()})
+            baselines: list[dict] = []  # results are scored against the real network, not other methods
             run.usage = result.usage_summary
             if result.result:
                 sc = score(s, result.result["parent"], result.result["uncertain"], result.experiments_used)

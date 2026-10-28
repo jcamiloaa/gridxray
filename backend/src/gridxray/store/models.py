@@ -31,4 +31,5 @@ class InvestigationRun(Base):
     session_key: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     language: Mapped[str] = mapped_column(String(5), default="en")
     usage: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    seal_nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)  # revealed only when finished
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

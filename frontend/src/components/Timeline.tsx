@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { RunEvent } from '../api/client'
 import { useI18n } from '../i18n'
+import { AiInputDialog } from './AiInputDialog'
 import { Markdown } from './Markdown'
 
 const TOOL_LABEL: Record<string, string> = {
@@ -11,6 +12,10 @@ const TOOL_LABEL: Record<string, string> = {
   compare_hypotheses: 'Looks for the experiment that separates two hypotheses',
   request_review: 'Asks Muse Wonder for a second opinion',
   suggest_experiments: 'Ranks the most informative next experiments',
+  passive_correlation: 'Traditional AI: clusters 24 h meter correlations into feeders and a tree',
+  geographic_prior: 'Geography: builds a prior from GIS blocks and voltages',
+  consensus: 'Ensemble: compares physics, correlation, geography and Meta AI',
+  meta_inference: 'Asks Muse Wonder to infer the topology from the raw data',
 }
 
 function Experiment({ e }: { e: RunEvent }) {
@@ -38,11 +43,30 @@ function Experiment({ e }: { e: RunEvent }) {
 export function Timeline({ events, running }: { events: RunEvent[]; running: boolean }) {
   const { t } = useI18n()
   const end = useRef<HTMLLIElement>(null)
+  const [audit, setAudit] = useState(false)
   useEffect(() => { end.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }) }, [events.length])
   return (
     <ol className="timeline" aria-live="polite">
+      {audit && <AiInputDialog events={events} onClose={() => setAudit(false)} />}
       {events.map((e, i) => {
         switch (e.kind) {
+          case 'sealed':
+            return (
+              <li key={i} className="tl tl--seal"><span className="tl__icon">🔒</span><div>
+                <b>{t('Topology sealed before the AI starts')}</b>
+                <p>{t('seal.text')}</p>
+                <code className="tl__hash">{String(e.commitment)}</code>
+                <button className="btn-link" onClick={() => setAudit(true)}>{t('See what the AI receives')}</button>
+              </div></li>
+            )
+          case 'meta_inference':
+            return (
+              <li key={i} className="tl tl--review"><span className="tl__icon tl__icon--wonder">W</span><div>
+                <b>{t('Muse Wonder · topology inferred from the data')}</b>
+                <p>{String(e.nodes_answered)} {t('nodes answered')} · {(e.uncertain as unknown[]).length} {t('flagged uncertain')} · {t('one vote in the ensemble')}</p>
+                {e.rationale ? <Markdown text={String(e.rationale)} /> : null}
+              </div></li>
+            )
           case 'started':
             return <li key={i} className="tl tl--sys"><span className="tl__icon">▶</span><div><b>{t('Investigation started')}</b>
               <p>{String(e.nodes)} {t('secondary substations')} · {t('budget')} {String(e.budget)} {t('experiments')}</p></div></li>

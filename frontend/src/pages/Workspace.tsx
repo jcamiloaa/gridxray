@@ -237,17 +237,13 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                   <div className="score-card">
                     <b>{t('Verified result')}</b>
                     <table>
-                      <thead><tr><th>{t('Method')}</th><th>{t('Correct')}</th><th>F1</th><th>{t('Exp.')}</th></tr></thead>
+                      <thead><tr><th>{t('Against the real network')}</th><th>{t('Correct')}</th><th>F1</th><th>{t('Exp.')}</th></tr></thead>
                       <tbody>
                         <tr className="score-card__us"><td>GridXray</td><td>{run.score.gridxray.correct_edges}/{run.score.gridxray.total_edges}</td>
                           <td>{run.score.gridxray.f1.toFixed(2)}</td><td>{run.score.gridxray.experiments}</td></tr>
-                        {run.score.baselines.map((b) => (
-                          <tr key={b.name}><td style={{ textTransform: 'capitalize' }}>{t(b.name)}</td><td>{b.correct_edges}/{b.total_edges}</td>
-                            <td>{b.f1.toFixed(2)}</td><td>{b.experiments}</td></tr>
-                        ))}
                       </tbody>
                     </table>
-                    <small className="muted">{t('Scored by an independent checker with no AI involved.')} {run.score.gridxray.wrong_edges} {t('wrong')}
+                    <small className="muted">{t('Scored against the real network by an independent checker with no AI involved.')} {run.score.gridxray.wrong_edges} {t('wrong')}
                       ({run.score.gridxray.wrong_and_flagged} {t('flagged as uncertain')}) · {run.score.steps} {t('steps')} · {run.score.reviews} {t('Wonder reviews')} · {Math.round(run.score.seconds ?? 0)} s
                       {run.score.usage ? ` · ${Math.round(run.score.usage.tokens / 1000)}k tokens · $${run.score.usage.cost_usd.toFixed(3)}` : ''}</small>
                     {run.runId && <a className="btn-link" href={`/api/investigations/${run.runId}/report?lang=${lang}`} target="_blank" rel="noreferrer">{t('Download report')}</a>}
@@ -277,14 +273,28 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                     <div className="run-result">
                       <div className="run-result__head">
                         <span className="run-result__f1">{run.score.gridxray.f1.toFixed(2)}</span>
-                        <span><b>F1</b> · {run.score.gridxray.correct_edges}/{run.score.gridxray.total_edges} {t('correct connections')}
-                          <br /><small className="muted">{run.score.gridxray.experiments} {t('experiments')} · {t('Same budget, no AI')} {
-                            run.score.baselines.find((b) => b.name === 'heuristic')?.f1.toFixed(2) ?? '—'}</small></span>
+                        <span><b>{run.score.gridxray.correct_edges}/{run.score.gridxray.total_edges}</b> {t('real connections recovered')} · F1
+                          <br /><small className="muted">{run.score.gridxray.experiments} {t('experiments')} · {run.score.gridxray.wrong_edges} {t('wrong')}, {
+                            run.score.gridxray.wrong_and_flagged} {t('flagged as uncertain')}</small></span>
                       </div>
                       <div className="row" style={{ flexWrap: 'wrap' }}>
                         <button className="btn-primary" onClick={run.compare} disabled={run.compared}>{run.compared ? t('Compared with the real network') : t('Compare with the real network')}</button>
                         {run.runId && <a className="btn-link" href={`/api/investigations/${run.runId}/report?lang=${lang}`} target="_blank" rel="noreferrer">{t('Report')}</a>}
                       </div>
+                      {run.seal && (
+                        <div className={`seal-check seal-check--${run.seal.state}`}>
+                          {run.seal.state === 'checking' ? t('Checking the seal…')
+                            : run.seal.state === 'unavailable' ? `${t('Seal not checked')}: ${t(run.seal.reason)}`
+                              : (
+                                <>
+                                  <b>{run.seal.state === 'ok' ? `✓ ${t('Seal verified in your browser')}` : `✗ ${t('Seal does not match')}`}</b>
+                                  <small>{t('seal.verify')}</small>
+                                  <code>{t('published')} {run.seal.commitment.slice(0, 16)}… · {t('recomputed')} {run.seal.recomputed.slice(0, 16)}…</code>
+                                  {!run.seal.edgesMatch && <small>{t('The sealed topology differs from the revealed one.')}</small>}
+                                </>
+                              )}
+                        </div>
+                      )}
                       {run.comparison && (
                         <div className="compare">
                           <div className="compare__stats">

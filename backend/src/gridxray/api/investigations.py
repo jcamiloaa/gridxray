@@ -114,6 +114,25 @@ def get(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) 
             "source": row.source, "seed": row.seed, "budget": row.budget}
 
 
+@router.get("/{run_id}/seal")
+def seal(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) -> dict:
+    """After the run: the nonce and the topology, so the browser can re-check the published commitment."""
+    from gridxray.runs import make_scenario
+    from gridxray.seal import ALGORITHM, canonical, commitment
+
+    row = _owned(db, run_id, user, session)
+    live = manager.runs.get(run_id)
+    status_now = live.status if live else row.status
+    if status_now == "running":
+        raise HTTPException(status.HTTP_409_CONFLICT, "The seal opens only when the investigation has finished")
+    if not row.seal_nonce:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "This investigation predates sealing")
+    text = canonical(make_scenario(row.source, row.seed))
+    sealed = next((e for e in (live.since(0) if live else row.events) if e.get("kind") == "sealed"), {})
+    return {"algorithm": ALGORITHM, "nonce": row.seal_nonce, "canonical": text,
+            "published_commitment": sealed.get("commitment"), "recomputed": commitment(row.seal_nonce, text)}
+
+
 @router.get("/{run_id}/report", response_class=HTMLResponse)
 def report(run_id: str, user: CurrentUser, db: DbSession, session: Session = None, lang: str | None = None) -> HTMLResponse:
     """Printable end-of-investigation report."""

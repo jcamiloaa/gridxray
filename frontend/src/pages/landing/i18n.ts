@@ -64,7 +64,7 @@ const en: Copy = {
     ground: [
       { k: 'Foundation', title: 'Virtual grid lab', text: 'A pandapower model of a medium-voltage network with meters, switches and daily demand.' },
       { k: 'Guarantee', title: 'Sealed ground truth', text: 'The true topology never leaves the simulator. The agents only see what a utility would.' },
-      { k: 'Proof', title: 'LLM-free verifier', text: 'Every conclusion is scored against the truth and a non-AI baseline.' },
+      { k: 'Proof', title: 'LLM-free verifier', text: 'Every conclusion is scored against the real network, sealed before the AI starts.' },
     ],
     openLab: 'Open the lab',
   },
@@ -113,14 +113,14 @@ const en: Copy = {
   },
   verify: {
     kicker: 'Independent verification', title: 'Measured, not claimed.',
-    lead: 'An independent verifier, with no LLM involved, scores every result against the sealed ground truth and against a non-AI baseline, and reports what remains uncertain.',
+    lead: 'An independent verifier, with no LLM involved, scores every result against the sealed real network, and reports what remains uncertain.',
     features: [
       { title: 'Independent verification', text: 'A checker with no AI involved scores the result against the truth: accuracy, experiments used and time.' },
-      { title: 'Non-AI baseline', text: 'Every run is compared with a classical method on the same network and the same budget.' },
+      { title: 'Sealed before the run', text: 'A SHA-256 fingerprint of the hidden network is published before the AI starts; your browser re-checks it at the end.' },
       { title: 'Outdated-record detection', text: 'Flags switches whose real state differs from what the records say: the discrepancies that cause unsafe maneuvers.' },
       { title: 'Uncertainty made explicit', text: 'Links the evidence cannot settle are reported as uncertain, never silently guessed.' },
     ],
-    caption: 'The scorecard: accuracy, experiments and record errors, side by side with the baseline. Illustrative values.',
+    caption: 'The scorecard: accuracy, experiments and record errors, against the real network. Illustrative values.',
   },
   chain: {
     eyebrow: 'Where GridXray fits', title: 'From the power plant to your home.',
@@ -156,7 +156,7 @@ const en: Copy = {
       'Modelled from the HV/MV substation down to every secondary substation; the low-voltage streets and homes behind each one are represented by its total demand',
       'Physics-based simulation with pandapower; synthetic data only',
       'Real Meta models: no scripted answers or pre-programmed discoveries',
-      'Measured results, compared with a non-AI baseline',
+      'Measured results, scored against the real network',
     ],
     outTitle: 'On the roadmap',
     outItems: [
@@ -234,7 +234,7 @@ const es: Copy = {
     ground: [
       { k: 'Base', title: 'Laboratorio de red virtual', text: 'Un modelo pandapower de una red de media tensión con medidores, interruptores y demanda diaria.' },
       { k: 'Garantía', title: 'Verdad sellada', text: 'La topología real nunca sale del simulador. Los agentes solo ven lo que vería una empresa eléctrica.' },
-      { k: 'Prueba', title: 'Verificador sin LLM', text: 'Cada conclusión se evalúa contra la verdad y contra un método sin IA.' },
+      { k: 'Prueba', title: 'Verificador sin LLM', text: 'Cada conclusión se evalúa contra la red real, sellada antes de que empiece la IA.' },
     ],
     openLab: 'Abrir el laboratorio',
   },
@@ -283,14 +283,14 @@ const es: Copy = {
   },
   verify: {
     kicker: 'Verificación independiente', title: 'Medido, no afirmado.',
-    lead: 'Un verificador independiente, sin LLM, evalúa cada resultado contra la verdad sellada y contra un método sin IA, e informa lo que sigue siendo incierto.',
+    lead: 'Un verificador independiente, sin LLM, evalúa cada resultado contra la red real sellada, e informa lo que sigue siendo incierto.',
     features: [
       { title: 'Verificación independiente', text: 'Un evaluador sin IA compara el resultado con la verdad: precisión, experimentos usados y tiempo.' },
-      { title: 'Referencia sin IA', text: 'Cada ejecución se compara con un método clásico sobre la misma red y el mismo presupuesto.' },
+      { title: 'Sellada antes de la corrida', text: 'Antes de que empiece la IA se publica la huella SHA-256 de la red oculta; al final tu navegador la vuelve a verificar.' },
       { title: 'Detección de registros desactualizados', text: 'Señala interruptores cuyo estado real difiere de lo que dicen los registros: las discrepancias que causan maniobras inseguras.' },
       { title: 'Incertidumbre explícita', text: 'Las conexiones que la evidencia no puede resolver se reportan como inciertas, nunca se adivinan en silencio.' },
     ],
-    caption: 'El tablero de resultados: precisión, experimentos y errores de registro, junto a la referencia. Valores ilustrativos.',
+    caption: 'El tablero de resultados: precisión, experimentos y errores de registro, contra la red real. Valores ilustrativos.',
   },
   chain: {
     eyebrow: 'Dónde encaja GridXray', title: 'De la central eléctrica a tu casa.',
@@ -326,7 +326,7 @@ const es: Copy = {
       'Modelado desde la subestación AT/MT hasta cada subestación secundaria; las calles de baja tensión y los hogares detrás de cada una se representan por su demanda total',
       'Simulación basada en física con pandapower; solo datos sintéticos',
       'Modelos reales de Meta: sin respuestas guionizadas ni descubrimientos preprogramados',
-      'Resultados medidos, comparados con un método sin IA',
+      'Resultados medidos, evaluados contra la red real',
     ],
     outTitle: 'En la hoja de ruta',
     outItems: [

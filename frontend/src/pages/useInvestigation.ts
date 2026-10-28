@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  getTruth, resumeRun, startInvestigation, stopRun, streamInvestigation, type CandidateEdge, type ObservableScenario, type RunEvent,
+  getSeal, getTruth, resumeRun, startInvestigation, stopRun, streamInvestigation, type CandidateEdge, type ObservableScenario, type RunEvent,
   type RunScore, type ScenarioSource,
 } from '../api/client'
 import type { Overlay } from '../scene/model'
 
 export type RunStatus = 'idle' | 'running' | 'done' | 'failed'
+
+/** Outcome of re-checking, in this browser, the commitment published before the run. */
+export type SealCheck = { state: 'checking' } | { state: 'ok' | 'bad'; commitment: string; recomputed: string; edgesMatch: boolean } | { state: 'unavailable'; reason: string }
+
+async function sha256(text: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
 
 const pairKey = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`)
 
@@ -19,6 +27,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   const [error, setError] = useState<string | null>(null)
   const [truthEdges, setTruthEdges] = useState<[number, number][] | null>(null)
   const [runId, setRunId] = useState<string | null>(null)
+  const [seal, setSeal] = useState<SealCheck | null>(null)
   const close = useRef<() => void>(() => {})
 
   const idOf = useMemo(() => {
@@ -32,7 +41,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   // a new grid resets everything
   useEffect(() => {
     close.current()
-    setStatus('idle'); setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null)
+    setStatus('idle'); setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
   }, [scenario])
   useEffect(() => () => close.current(), [])
 
@@ -57,7 +66,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   const start = useCallback(async (budget: number, language = 'en') => {
     if (!generated) return
     close.current()
-    setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null)
+    setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     try {
       const { id } = await startInvestigation(generated.source, generated.seed, budget, language)
       setRunId(id)
@@ -72,7 +81,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   /** Follow a run that is already going (e.g. after a page reload). */
   const attach = useCallback((id: string) => {
     close.current()
-    setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null)
+    setEvents([]); setEdges([]); setFocus(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     setRunId(id)
     setStatus('running')
     close.current = streamInvestigation(id, onEvent, () => setError('Lost the live connection to the investigation.'))
@@ -94,7 +103,22 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
     if (!generated) return
     const { truth } = await getTruth(generated.source, generated.seed)
     setTruthEdges(truth.edges)
-  }, [generated])
+    // the commitment came in the first event, before the AI saw anything; the secret is revealed only now
+    const published = events.find((e) => e.kind === 'sealed')?.commitment as string | undefined
+    if (!runId || !published) { setSeal({ state: 'unavailable', reason: 'This investigation predates sealing.' }); return }
+    if (!globalThis.crypto?.subtle) { setSeal({ state: 'unavailable', reason: 'This browser cannot compute SHA-256 here (needs HTTPS or localhost).' }); return }
+    setSeal({ state: 'checking' })
+    try {
+      const s = await getSeal(runId)
+      const recomputed = await sha256(s.nonce + s.canonical)
+      const key = (e: number[]) => pairKey(e[0], e[1])
+      const sealed = new Set((JSON.parse(s.canonical).edges as number[][]).map(key))
+      const edgesMatch = sealed.size === truth.edges.length && truth.edges.every((e) => sealed.has(key(e)))
+      setSeal({ state: recomputed === published && edgesMatch ? 'ok' : 'bad', commitment: published, recomputed, edgesMatch })
+    } catch (e) {
+      setSeal({ state: 'unavailable', reason: e instanceof Error ? e.message : String(e) })
+    }
+  }, [generated, events, runId])
 
   const overlay = useMemo<Overlay | undefined>(() => {
     if (!edges.length) return undefined
@@ -130,14 +154,16 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
       }
     }
     const name = (id: number) => nameOf.get(id) ?? String(id)
+    // a connection counts as found when the pair is really wired, as in the score and the map colours
+    const real = new Set(truthEdges.map(([x, y]) => pairKey(x, y)))
     const rows = edges.map((e) => ({
       node: name(e.child), ai: name(e.parent), real: realParent.has(e.child) ? name(realParent.get(e.child)!) : '—',
-      ok: realParent.get(e.child) === e.parent, flagged: e.basis === 'uncertain',
+      ok: real.has(pairKey(e.child, e.parent)), flagged: e.basis === 'uncertain',
     })).sort((a, b) => a.node.localeCompare(b.node))
     return { rows, correct: rows.filter((r) => r.ok).length, wrong: rows.filter((r) => !r.ok) }
   }, [truthEdges, edges, scenario, nameOf])
 
   const experimentsUsed = events.filter((e) => e.kind === 'experiment' && e.accepted).length
   const budget = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
-  return { status, events, overlay, score, error, start, attach, stop, resume, runId, compare, comparison, compared: truthEdges !== null, nameOf, experimentsUsed, budget }
+  return { status, events, overlay, score, error, start, attach, stop, resume, runId, compare, comparison, seal, compared: truthEdges !== null, nameOf, experimentsUsed, budget }
 }

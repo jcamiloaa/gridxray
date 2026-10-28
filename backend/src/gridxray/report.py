@@ -17,11 +17,12 @@ T = {
         "timeline": "Experiments run", "node": "Action", "response": "Strongest responses (mpu/MW)", "hyp": "Hypotheses",
         "conf": "Confidence", "reviews": "Muse Wonder reviews", "usage": "Usage and cost", "model": "Model",
         "tokens": "Tokens (in / out / reasoning)", "cost": "Cost (USD)", "repro": "Reproduce",
-        "how": "How this was scored", "how_text": "An independent checker with no AI compares every proposed connection with "
+        "how": "How this was scored", "vs_real": "connections recovered out of the real ones",
+        "seal": "Sealed topology", "seal_text": "Published before the AI saw anything: SHA-256(secret + true topology).",
+        "seal_ok": "Verified: the real network matches the seal.", "seal_bad": "Seal could not be verified.",
+        "methods": "Tools the AI used", "how_text": "An independent checker with no AI compares every proposed connection with "
                "the simulator's ground truth. The AI never saw the true topology: only equipment, records, meter readings "
                "and the results of its own experiments.", "none": "None", "rejected": "rejected",
-        "baselines": {"geographic": "Geographic (no experiments)", "passive": "Passive 24 h (no experiments)",
-                      "heuristic": "Same budget, no AI", "exhaustive": "Exhaustive (one experiment per node)"},
     },
     "es": {
         "title": "Informe de investigación GridXray", "scenario": "Escenario", "network": "Red", "seed": "Semilla",
@@ -33,11 +34,12 @@ T = {
         "timeline": "Experimentos realizados", "node": "Acción", "response": "Respuestas más fuertes (mpu/MW)", "hyp": "Hipótesis",
         "conf": "Confianza", "reviews": "Revisiones de Muse Wonder", "usage": "Uso y costo", "model": "Modelo",
         "tokens": "Tokens (entrada / salida / razonamiento)", "cost": "Costo (USD)", "repro": "Reproducir",
-        "how": "Cómo se evaluó", "how_text": "Un verificador independiente, sin IA, compara cada conexión propuesta con la verdad "
+        "how": "Cómo se evaluó", "vs_real": "conexiones recuperadas de las reales",
+        "seal": "Topología sellada", "seal_text": "Publicado antes de que la IA viera nada: SHA-256(secreto + topología real).",
+        "seal_ok": "Verificado: la red real coincide con el sello.", "seal_bad": "No se pudo verificar el sello.",
+        "methods": "Herramientas que usó la IA", "how_text": "Un verificador independiente, sin IA, compara cada conexión propuesta con la verdad "
                "del simulador. La IA nunca vio la topología real: solo equipos, registros, lecturas de medidores y los "
                "resultados de sus propios experimentos.", "none": "Ninguna", "rejected": "rechazado",
-        "baselines": {"geographic": "Geográfico (sin experimentos)", "passive": "Pasivo 24 h (sin experimentos)",
-                      "heuristic": "Mismo presupuesto, sin IA", "exhaustive": "Exhaustivo (un experimento por nodo)"},
     },
 }
 
@@ -122,14 +124,11 @@ def render(row, lang: str | None = None) -> str:
                f"<div><b>{e(started.get('spark', '—'))}</b><span>{t['models']} · Spark</span></div>"
                f"<div><b>{e(started.get('wonder', '—'))}</b><span>{t['models']} · Wonder</span></div></div>")
     if g:
-        out.append(f"<h2>{t['result']}</h2><p><span class='big'>{g['f1']:.2f}</span> F1 · {g['correct_edges']}/{g['total_edges']} "
-                   f"{t['correct'].lower()} · {g['experiments']} {t['experiments'].lower()}</p>"
-                   f"<table><tr><th>{t['method']}</th><th>{t['correct']}</th><th>{t['f1']}</th><th>{t['experiments']}</th></tr>"
-                   f"<tr class='us'><td>GridXray (Muse Spark + Muse Wonder)</td><td>{g['correct_edges']}/{g['total_edges']}</td><td>{g['f1']:.2f}</td><td>{g['experiments']}</td></tr>")
-        for b in sc.get("baselines", []):
-            out.append(f"<tr><td>{e(t['baselines'].get(b['name'], b['name']))}</td><td>{b['correct_edges']}/{b['total_edges']}</td>"
-                       f"<td>{b['f1']:.2f}</td><td>{b['experiments']}</td></tr>")
-        out.append(f"</table><p class='note'>{t['wrong']}: {g['wrong_edges']} · {t['flagged']}: {g['wrong_and_flagged']}/{g['uncertain_flagged']}</p>")
+        out.append(f"<h2>{t['result']}</h2><p><span class='big'>{g['correct_edges']}/{g['total_edges']}</span> "
+                   f"{t['vs_real']} · F1 {g['f1']:.2f} · {g['experiments']} {t['experiments'].lower()}</p>"
+                   f"<div class='kv'><div><b>{g['correct_edges']}</b><span>{t['correct']}</span></div>"
+                   f"<div><b>{g['wrong_edges']}</b><span>{t['wrong']}</span></div>"
+                   f"<div><b>{g['wrong_and_flagged']}/{g['wrong_edges']}</b><span>{t['flagged']}</span></div></div>")
     if result.get("summary"):
         out.append(f"<h2>{t['summary']}</h2><div class='note'>{md(result['summary'])}</div>")
     if proposed:
@@ -163,6 +162,15 @@ def render(row, lang: str | None = None) -> str:
         for m, u in usage["by_model"].items():
             out.append(f"<tr><td>{e(m)}</td><td>{u['input']:,} / {u['output']:,} / {u['reasoning']:,}</td><td>${u['cost_usd']:.3f}</td></tr>")
         out.append(f"<tr class='us'><td>Total</td><td>{usage.get('tokens', 0):,}</td><td>${usage.get('cost_usd', 0):.3f}</td></tr></table>")
+    sealed = next((ev for ev in events if ev.get("kind") == "sealed"), None)
+    if sealed:
+        from gridxray.seal import canonical, commitment
+
+        ok = getattr(row, "seal_nonce", None) and commitment(row.seal_nonce, canonical(s)) == sealed.get("commitment")
+        out.append(f"<h2>{t['seal']}</h2><p class='note'>{t['seal_text']}<br><code>{e(sealed.get('commitment', ''))}</code><br>"
+                   f"<b class='{'ok' if ok else 'bad'}'>{t['seal_ok'] if ok else t['seal_bad']}</b></p>")
+    used = sorted({ev.get("tool") for ev in events if ev.get("kind") == "tool_call"})
+    out.append(f"<h2>{t['methods']}</h2><p>{', '.join(e(str(u)) for u in used) or t['none']}</p>")
     out.append(f"<h2>{t['how']}</h2><p class='note'>{t['how_text']}</p>"
                f"<h2>{t['repro']}</h2><p><code>uv run gridxray investigate --level {e(row.source)} --seed {row.seed} --budget {row.budget}</code></p>"
                "</main></body></html>")

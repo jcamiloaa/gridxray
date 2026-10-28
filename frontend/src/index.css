@@ -474,3 +474,15 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .compare__table tr.is-ok td:last-child { color: #0f7a53; font-weight: 700; }
 .compare__table tr.is-bad td { color: var(--danger); font-weight: 600; background: #fdf3f3; }
 .ws-timeline { grid-template-rows: auto auto auto auto 1fr; }
+
+/* ---------- seal + AI input audit ---------- */
+.tl--seal > div { background: var(--surface-2); border-radius: 10px; padding: 8px 10px; border-left: 3px solid var(--flow, #0e6e8c); }
+.tl__hash { display: block; font-size: .7rem; word-break: break-all; opacity: .8; margin: 4px 0; }
+.seal-check { display: grid; gap: 2px; padding: 8px 10px; border-radius: 10px; margin: 8px 0; font-size: .85rem; background: var(--surface-2); }
+.seal-check code { font-size: .7rem; word-break: break-all; }
+.seal-check--ok { background: rgba(31, 157, 85, .12); color: #17773f; }
+.seal-check--bad { background: rgba(214, 69, 65, .12); color: #a8322e; }
+.ai-input { width: 100%; max-width: 820px; max-height: 86vh; overflow: auto; padding: 24px; display: grid; gap: 10px; align-content: start; }
+.ai-input pre { white-space: pre-wrap; word-break: break-word; font-size: .75rem; background: var(--surface-2); padding: 10px; border-radius: 8px; max-height: 360px; overflow: auto; }
+.ai-input summary { cursor: pointer; font-weight: 600; }
+.ai-input__out { margin-left: 12px; }

@@ -10,7 +10,14 @@ from typing import Any
 
 from gridxray.lab import Scenario
 from gridxray.sim import ExperimentEngine
-from gridxray.tools.reconstruct import Evidence, best_tree, check_tree, predicted_sensitivity
+from gridxray.tools.hybrid import Passive, consensus, passive_correlation
+from gridxray.tools.reconstruct import (
+    Evidence,
+    best_tree,
+    check_tree,
+    infer_tree,
+    predicted_sensitivity,
+)
 
 
 def _fn(name: str, description: str, properties: dict, required: list[str] | None = None) -> dict:
@@ -61,6 +68,18 @@ TOOLS: list[dict] = [
         "experiments are 'measured'; the rest are 'inferred' from geography and voltage and need "
         "confirmation. Use it as a starting point, not as the answer.",
         {"tolerance": {"type": "number", "description": "Matching tolerance in pu per MW (default 0.00012). Raise it when data is noisy."}}),
+    _fn("passive_correlation",
+        "Traditional machine learning on 24 h of historical meter data (no experiment, free): feeder groups "
+        "from hierarchical clustering of voltage patterns, and a Chow-Liu maximum-correlation tree.", {}),
+    _fn("geographic_prior",
+        "Non-AI prior from GIS and one voltage snapshot: each node hangs from its most upstream-looking neighbour.", {}),
+    _fn("meta_inference",
+        "Ask the Meta model (Muse Wonder) to infer the full topology directly from the raw experiment data. "
+        "Its answer becomes one vote in the ensemble. Best after a few experiments.", {}),
+    _fn("consensus",
+        "Ensemble of all methods (physics from experiments, correlation ML, geography and the Meta model's own "
+        "inference when available): chosen parent per node, how many methods agree, and the nodes where they "
+        "disagree. Disagreements are where to experiment next and what to report as uncertain.", {}),
     _fn("suggest_experiments",
         "Ranked candidates for the next load perturbation: metered nodes not yet probed, far from the substation, "
         "whose path still has many unconfirmed (inferred) connections. A starting point: you decide.", {}),
@@ -106,6 +125,8 @@ class ToolBox:
         self.tol = 1.2e-4
         self.result: dict | None = None
         self.notes: list[dict] = []
+        self._passive: Passive | None = None
+        self.meta_tree = None  # set by the orchestrator when the Meta model has inferred a tree
 
     # ------------------------------------------------------------ plumbing
 
@@ -120,9 +141,21 @@ class ToolBox:
             raise ToolError(f"unknown node {name!r}")
         return self.id[name]
 
+    def passive(self) -> Passive:
+        if self._passive is None:  # historical hourly readings: no experiment, no budget
+            series: dict[int, list] = {n: [] for n in self.engine.s.metered}
+            for h in range(24):
+                for n, r in self.engine.snapshot(h).items():
+                    series[n].append(r["vm_pu"])
+            self._passive = passive_correlation(self.obs, series)
+        return self._passive
+
+    def ensemble(self):
+        return consensus(self.obs, self.evidence(), self.passive(), self.meta_tree)
+
     def _parents(self, edges: list[dict] | None = None, changes: list[dict] | None = None) -> dict[int, int]:
-        """A full proposal from explicit edges, or the current candidate with the given changes."""
-        parent = {} if edges else dict(best_tree(self.obs, self.evidence()).parent)
+        """A full proposal from explicit edges, or the ensemble's tree with the given changes."""
+        parent = {} if edges else dict(self.ensemble().parent)
         for e in (edges or []) + (changes or []):
             parent[self._node(e["child"])] = self._node(e["parent"])
         return parent
@@ -198,6 +231,28 @@ class ToolBox:
         inferred = [e["child"] for e in edges if e["basis"] == "inferred"]
         return {"edges": edges, "inferred_count": len(inferred), "measured_count": len(edges) - len(inferred),
                 "inferred_children": inferred}
+
+    def _edges(self, parent: dict[int, int]) -> list[dict]:
+        return [{"child": self.name[c], "parent": self.name[p]} for c, p in sorted(parent.items(), key=lambda x: self.name[x[0]])]
+
+    def t_passive_correlation(self) -> dict:
+        p = self.passive()
+        return {"feeder_groups": [[self.name[n] for n in g] for g in p.clusters],
+                "chow_liu_tree": self._edges(p.tree.parent),
+                "method": "hierarchical clustering + maximum-correlation spanning tree on 24 h detrended voltages"}
+
+    def t_geographic_prior(self) -> dict:
+        return {"tree": self._edges(infer_tree(self.obs).parent), "method": "GIS blocks + voltage snapshot"}
+
+    def t_consensus(self) -> dict:
+        c = self.ensemble()
+        methods = sorted({m for v in c.votes.values() for ms in v.values() for m in ms})
+        rows = [{"node": self.name[n], "parent": self.name[c.parent[n]], "agreement": round(c.agreement[n], 2),
+                 **({"alternatives": {self.name[p]: ms for p, ms in c.votes[n].items() if p != c.parent[n]}}
+                    if len(c.votes[n]) > 1 else {})}
+                for n in sorted(c.parent, key=lambda x: self.name[x])]
+        return {"methods": methods, "tree": rows, "uncertain": [self.name[n] for n in c.uncertain],
+                "unanimous": sum(1 for n in c.parent if len(c.votes[n]) == 1), "total": len(c.parent)}
 
     def t_suggest_experiments(self) -> dict:
         ev = self.evidence()
