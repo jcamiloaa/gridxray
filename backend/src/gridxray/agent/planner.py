@@ -44,6 +44,21 @@ a trustworthy plan and full metering leave little to resolve, more with an old o
 meters or many feeders."""
 
 
+MAX_EXTRA = 10  # experiments the planner may add after a field failure
+
+REPLAN_INSTRUCTIONS = """\
+You are GridXray's planning engineer, called back in the middle of an investigation: the meters show that the real
+network changed (a switch was operated or equipment failed). Earlier experiments were set aside because they describe
+the old network and NO LONGER COUNT: what was confirmed before the change must be confirmed again. You get how many
+experiments still count, how many substations are confirmed by them, how many are not, and the budget left.
+Rules: a meter that went silent is a failure in the field: recommend a crew, and count that a crew visit uses one
+experiment of the budget. If the budget left (minus the crew, if you recommend one) cannot re-confirm the
+unconfirmed substations in the affected area (roughly one experiment per unconfirmed substation there, at least the
+suspect sites), add the difference; add none only when the budget left clearly covers it. Return ONLY JSON:
+{"extra_experiments": <integer 0..10>, "send_crew": true|false, "priorities": ["<node names to re-test first, up to 6>"],
+ "reasoning": "<two sentences: what changed and why this many extra experiments>"}"""
+
+
 @dataclass
 class Plan:
     kind: str  # current | old | errors
@@ -174,3 +189,17 @@ def fallback_budget(n_nodes: int, metered: int, trust: float) -> int:
     """When the planner gives no usable number: about half the nodes, more with weak plans or few meters."""
     need = n_nodes * (0.6 - 0.3 * trust) + (n_nodes - metered) * 0.3
     return int(min(MAX_BUDGET, max(MIN_BUDGET, round(need))))
+
+
+def parse_replan(text: str) -> dict:
+    match = re.search(r"\{.*\}", text or "", re.DOTALL)
+    try:
+        out = json.loads(match.group(0)) if match else {}
+    except json.JSONDecodeError:
+        out = {}
+    try:
+        out["extra_experiments"] = int(min(MAX_EXTRA, max(0, int(out.get("extra_experiments") or 0))))
+    except (TypeError, ValueError):
+        out["extra_experiments"] = 0
+    out["send_crew"] = bool(out.get("send_crew"))
+    return out

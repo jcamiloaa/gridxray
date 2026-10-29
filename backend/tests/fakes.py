@@ -39,6 +39,9 @@ class ScriptedClient:
         if model == settings.wonder_model:
             self.wonder_calls += 1
             return SimpleNamespace(id="w", output=[], output_text="Perturb the deepest node.", usage=None)
+        if (kw.get("instructions") or "").startswith("You are GridXray's planning engineer, called back"):
+            return SimpleNamespace(id="rp", output=[], usage=None, output_text=json.dumps(
+                {"extra_experiments": 3, "send_crew": True, "priorities": [], "reasoning": "re-test the moved area"}))
         if (kw.get("instructions") or "").startswith("You are GridXray's planning engineer"):  # the planning agent answers with its plan
             self.planner_calls = getattr(self, "planner_calls", 0) + 1
             return SimpleNamespace(id="p", output=[], usage=None, output_text=json.dumps(

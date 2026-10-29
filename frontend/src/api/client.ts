@@ -147,7 +147,7 @@ export interface RunEvent {
 }
 
 export const EVENT_KINDS = ['sealed', 'started', 'meta_inference', 'crew_dispatched', 'crew_stage', 'field_photo', 'segmentation', 'field_reading', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
-  'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done', 'intervention', 'change_detected', 'plan_review']
+  'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done', 'intervention', 'change_detected', 'plan_review', 'replan']
 
 export interface ActiveRun { id: string; source: string; seed: number; budget: number }
 

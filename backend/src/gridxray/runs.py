@@ -57,7 +57,7 @@ class LiveRun:
                 return
             if not self.closed:
                 self.events.append(event)
-        if event["kind"] == "started":  # in autonomous mode the planning agent decided the budget
+        if event["kind"] in ("started", "replan"):  # the planning agent decided (or extended) the budget
             self.budget = int(event.get("budget") or self.budget)
         if event["kind"] == "usage":  # a model call that was in flight when stopped is still billed
             self.usage = {k: v for k, v in event.items() if k not in ("t", "kind")}

@@ -117,6 +117,8 @@ class Investigator:
                 tb.notes.append({"statement": e.get("statement"), "confidence": e.get("confidence"), "nodes": e.get("nodes", [])})
             elif kind == "review":
                 self.run.reviews += 1
+            elif kind == "replan":
+                tb.engine.budget = int(e.get("budget") or tb.engine.budget)
             elif kind == "plan_review":
                 tb.plan_trust = float((e.get("decision") or {}).get("trust_in_plan", 0))
                 tb.engine.budget = int(e.get("budget") or tb.engine.budget)
@@ -372,6 +374,9 @@ class Investigator:
         changes = [r["field_change"] for r in out.get("results", [out]) if isinstance(r, dict) and r.get("field_change")]
         for c in changes:  # the agent noticed a change in the field by itself, from the readings
             self.emit("change_detected", **c)
+            advice = self.replan(c)
+            if advice and isinstance(out, dict):
+                out["planner_after_change"] = advice  # Spark reads the planner's new plan with the experiment results
         if name == "run_experiment":
             self.emit("experiment", args=args, **out)
             if out.get("accepted"):
@@ -474,6 +479,43 @@ class Investigator:
                               f"budget {tb.engine.budget}{' decided by the planner' if self.autonomous else ''}. "
                               f"Start with: {', '.join(decision.get('priorities') or []) or 'your own choice'}. "
                               f"{decision.get('strategy', '')}")
+
+    def replan(self, change: dict) -> dict | None:
+        """After a field failure the planning agent decides whether the investigation needs extra stages."""
+        from gridxray.agent.planner import MAX_BUDGET, REPLAN_INSTRUCTIONS, parse_replan
+
+        tb = self.run.toolbox
+        try:
+            uncertain = tb.consensus_brief()["uncertain"]
+        except Exception:  # noqa: BLE001 - the brief is advice
+            uncertain = []
+        from gridxray.tools.reconstruct import best_tree
+
+        now = best_tree(tb.obs, tb.evidence())  # only experiments on the changed network count
+        confirmed = sum(1 for b in now.basis.values() if b == "measured")
+        counting = sum(1 for r in tb.engine.history if r.accepted and r.epoch == tb.engine.epoch and r.action.get("type") == "perturb_load")
+        dossier = {"what_changed": {k: change.get(k) for k in ("largest_shifts_pu", "meters_offline", "suspect_sites")},
+                   "experiments_set_aside": change.get("experiments_set_aside"), "experiments_still_counting": counting,
+                   "substations": len(tb.obs.nodes), "confirmed_by_current_evidence": confirmed,
+                   "not_confirmed": len(tb.obs.nodes) - confirmed, "still_uncertain_in_ensemble": uncertain,
+                   "budget": tb.engine.budget, "budget_remaining": tb.engine.remaining}
+        self.emit("review_started", trigger="replanning", reason="The planning agent re-plans after a field change")
+        rules = REPLAN_INSTRUCTIONS + ("\nWrite reasoning in Spanish (node names stay as they are)." if self.language == "es" else "")
+        try:
+            resp = self.client.respond(self.cfg.spark_model, dumps(dossier), instructions=rules,
+                                       reasoning_effort=self.cfg.spark_reasoning_effort)
+            self.add_usage(self.cfg.spark_model, resp.usage)
+            decision = parse_replan(resp.output_text)
+        except Exception as e:  # noqa: BLE001 - re-planning is advice: the investigation goes on without it
+            decision = {"extra_experiments": 0, "send_crew": False, "reasoning": f"planner unavailable ({type(e).__name__})"}
+        extra = max(0, min(decision["extra_experiments"], MAX_BUDGET - tb.engine.budget))
+        tb.engine.budget += extra
+        decision["extra_experiments"] = extra
+        self.emit("replan", decision=decision, budget=tb.engine.budget, budget_remaining=tb.engine.remaining,
+                  planner_input=dossier)
+        return {"extra_experiments_added": extra, "budget_remaining": tb.engine.remaining,
+                "send_crew": decision["send_crew"], "re_test_first": decision.get("priorities", []),
+                "reasoning": decision.get("reasoning", "")}
 
     def first_look(self) -> dict:
         """The free, no-budget first step, computed before Spark's first turn and handed to it directly."""

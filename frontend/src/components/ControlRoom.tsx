@@ -101,7 +101,16 @@ function useSteps(events: RunEvent[]): Step[] {
           add({ actor: 'spark', icon: 'bulb', text: `${clip(String(e.statement), 160)} (${Math.round(Number(e.confidence) * 100)}%)`,
             logic: `${t('Hypothesis')} · ${Math.round(Number(e.confidence) * 100)}%` })
           break
+        case 'replan': {
+          const d = (e.decision ?? {}) as { extra_experiments?: number; send_crew?: boolean }
+          add({ actor: 'planner', to: 'spark', icon: 'clipboard',
+            text: (d.extra_experiments ? t('room.replan.add').split('{n}').join(String(d.extra_experiments)) : t('room.replan.none'))
+              + ' ' + t('room.budget').split('{b}').join(String(e.budget)) + (d.send_crew ? ` ${t('room.replan.crew')}` : ''),
+            logic: t('room.replan.logic') })
+          break
+        }
         case 'review_started':
+          if (e.trigger === 'replanning') { add({ actor: 'grid', to: 'planner', icon: 'siren', text: t('room.replan.ask') }); break }
           if (e.trigger === 'planning') add({ actor: 'you', to: 'planner', icon: 'clipboard', text: t('room.ask_planner') })
           else add({ actor: 'spark', to: 'wonder', icon: 'handshake', text: t('room.ask_wonder') })
           break

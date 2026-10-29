@@ -31,7 +31,8 @@ T = {
         "at": "at", "exp_n": "on experiment {n} after the change", "set_aside": "earlier experiments set aside",
         "shifts": "Largest voltage shifts", "how_seen": {"baseline": "the baseline readings moved", "repeated experiment": "a repeated experiment answered differently"},
         "inc_score": "The result is scored against the network as it ended; the original seal still verifies the network at the start.",
-        "new_seal": "New commitment published at the change", "incidents_kv": "Field incidents", "detected_kv": "Detected by the AI",
+        "new_seal": "New commitment published at the change", "replan": "Planning agent re-planned",
+        "replan_add": "added {n} experiment(s)", "replan_none": "no extra experiments needed", "replan_crew": "recommended a field crew", "incidents_kv": "Field incidents", "detected_kv": "Detected by the AI",
         "designed": "designed network", "plan": "Initial plan and planning agent", "plan_none": "The utility had no initial plan.",
         "plan_kinds": {"current": "up to date", "old": "old", "errors": "with errors"}, "drawn": "drawn on", "today": "today",
         "age": "age", "years": "years", "plan_acc": "Plan against the real network", "ai_acc": "GridXray's result",
@@ -65,7 +66,8 @@ T = {
         "at": "a los", "exp_n": "en el experimento {n} después del cambio", "set_aside": "experimentos anteriores descartados",
         "shifts": "Mayores cambios de tensión", "how_seen": {"baseline": "las lecturas base se movieron", "repeated experiment": "un experimento repetido respondió distinto"},
         "inc_score": "El resultado se evalúa contra la red como quedó al final; el sello original sigue verificando la red del inicio.",
-        "new_seal": "Nueva huella publicada en el cambio", "incidents_kv": "Incidencias en campo", "detected_kv": "Detectadas por la IA",
+        "new_seal": "Nueva huella publicada en el cambio", "replan": "El agente planificador re-planificó",
+        "replan_add": "agregó {n} experimento(s)", "replan_none": "no hicieron falta experimentos extra", "replan_crew": "recomendó enviar cuadrilla", "incidents_kv": "Incidencias en campo", "detected_kv": "Detectadas por la IA",
         "designed": "red diseñada", "plan": "Plano inicial y agente planificador", "plan_none": "La empresa no tenía plano inicial.",
         "plan_kinds": {"current": "actualizado", "old": "antiguo", "errors": "con errores"}, "drawn": "dibujado el", "today": "hoy",
         "age": "antigüedad", "years": "años", "plan_acc": "Plano contra la red real", "ai_acc": "Resultado de GridXray",
@@ -173,6 +175,13 @@ def incidents_html(events: list[dict], t: dict) -> tuple[str, int, int]:
             out.append(f"<p class='ok'>✓ {t['detected']} {t['at']} {_clock(seen.get('t', 0))}, {t['exp_n'].format(n=exps)} · "
                        f"{seen.get('experiments_set_aside', 0)} {t['set_aside']}</p>"
                        + (f"<p>{t['shifts']}: {shifts}</p>" if shifts else "") + (f"<p>{e(off)}</p>" if off else ""))
+            rp = next((ev for ev in later if ev.get("kind") == "replan"), None)
+            if rp:
+                d = rp.get("decision") or {}
+                what = t["replan_add"].format(n=d.get("extra_experiments")) if d.get("extra_experiments") else t["replan_none"]
+                out.append(f"<p><b>{t['replan']}:</b> {what} · {rp.get('budget')} {t['budget'].lower()}"
+                           + (f" · {t['replan_crew']}" if d.get("send_crew") else "") + "</p>"
+                           + (f"<p class='small'>{e(str(d.get('reasoning', '')))}</p>" if d.get("reasoning") else ""))
         else:
             out.append(f"<p class='bad'>✗ {t['not_detected']}</p>")
         if iv.get("commitment"):

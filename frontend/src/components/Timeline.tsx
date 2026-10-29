@@ -139,6 +139,7 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
               </div></li>
             )
           case 'review_started':
+            if (e.trigger === 'replanning') return <li key={i} className="tl tl--sys"><span className="tl__icon tl__icon--planner">P</span><div><p>{t('The planning agent is re-planning after the field change…')}</p></div></li>
             if (e.trigger === 'planning') return <li key={i} className="tl tl--sys"><span className="tl__icon tl__icon--planner">P</span><div><p>{t('The planning agent is reviewing the initial plan…')}</p></div></li>
             return <li key={i} className="tl tl--sys"><span className="tl__icon tl__icon--wonder">W</span><div><p>{t('Muse Wonder is reviewing the evidence')} ({String(e.trigger)})…</p></div></li>
           case 'review':
@@ -169,6 +170,18 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
                 {d.priorities?.length ? <p className="muted">{t('Start with')}: {d.priorities.join(', ')}</p> : null}
                 {d.reasoning ? <Markdown text={String(d.reasoning)} /> : null}
                 {d.strategy ? <Markdown text={String(d.strategy)} /> : null}
+              </div></li>
+            )
+          }
+          case 'replan': {
+            const d = (e.decision ?? {}) as { extra_experiments?: number; send_crew?: boolean; priorities?: string[]; reasoning?: string }
+            return (
+              <li key={i} className="tl tl--plan"><span className="tl__icon tl__icon--planner">P</span><div>
+                <b>{t('Planning agent · re-plan after the field change')}</b>
+                <p>{d.extra_experiments ? <>{t('Adds')} <b>{d.extra_experiments}</b> {t('experiments')} · </> : <>{t('No extra experiments needed')} · </>}
+                  {t('new budget')} <b>{String(e.budget)}</b> · {t('left')} {String(e.budget_remaining)}{d.send_crew ? ` · ${t('recommends a field crew')}` : ''}</p>
+                {d.priorities?.length ? <p className="muted">{t('Re-test first')}: {d.priorities.join(', ')}</p> : null}
+                {d.reasoning ? <Markdown text={String(d.reasoning)} /> : null}
               </div></li>
             )
           }

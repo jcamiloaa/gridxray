@@ -79,3 +79,16 @@ def test_the_ai_is_never_told_what_kind_of_plan_it_has():
         text = " ".join(seen) + str(inv.run.toolbox.t_get_overview())
         for word in ("with errors", "\"errors\"", "\"old\"", "\"current\"", "kind_"):
             assert word not in text, (kind, word)
+
+
+def test_planner_adds_stages_after_a_field_failure():
+    s = generate_scenario(Complexity.EASY, 1)
+    events = []
+    inv = Investigator(s, budget=8, client=ScriptedClient(s), on_event=lambda e: events.append(e.to_dict()))
+    advice = inv.replan({"largest_shifts_pu": {"SS-03": -0.002}, "meters_offline": [], "suspect_sites": ["SS-03"],
+                         "experiments_set_aside": 4})
+    assert advice["extra_experiments_added"] == 3 and inv.run.toolbox.engine.budget == 11
+    replan = next(e for e in events if e["kind"] == "replan")
+    assert replan["budget"] == 11 and replan["decision"]["send_crew"]
+    inv2 = Investigator(s, budget=39, client=ScriptedClient(s))
+    assert inv2.replan({})["extra_experiments_added"] == 1  # never beyond the 40-experiment ceiling

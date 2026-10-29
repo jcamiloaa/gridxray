@@ -42,7 +42,8 @@ consensus shows, node by node, where these methods agree.
    someone operated the real network or something failed. Say so, find what changed (the largest
    shifts and suspect_sites point to the area; a switch near it is the usual suspect, a meter that
    went silent may be damaged), send a crew to the most suspect site when a photo would settle it,
-   and re-test that area before concluding: earlier experiments no longer count.
+   and re-test that area before concluding: earlier experiments no longer count. The planning engineer
+   re-plans right away (planner_after_change): it may add experiments and says where to re-test first.
 5. Conclude: check_hypothesis, then submit_result as `changes` to the consensus tree (only the nodes
    you move). Report as uncertain every node consensus lists as uncertain plus any you doubt.
 

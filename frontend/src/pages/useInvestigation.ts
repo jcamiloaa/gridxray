@@ -195,6 +195,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   }, [truthEdges, edges, scenario, nameOf])
 
   const experimentsUsed = events.filter((e) => (e.kind === 'experiment' && e.accepted) || e.kind === 'field_reading').length
-  const budget = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
+  // the planning agent may extend the budget after a field failure: the latest figure counts
+  const budget = ([...events].reverse().find((e) => e.kind === 'replan' || e.kind === 'started')?.budget as number | undefined) ?? 0
   return { status, events, overlay, score, error, start, attach, stop, resume, runId, compare, comparison, seal, compared: truthEdges !== null, nameOf, experimentsUsed, budget }
 }
