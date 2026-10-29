@@ -2,6 +2,7 @@ import { Component, useEffect, useRef, useState, type ComponentProps, type React
 import { FullscreenButton, GridScene } from './GridScene'
 import { Basic3D } from './Basic3D'
 import { SingleLine } from './SingleLine'
+import { useI18n } from '../i18n'
 import { withHypothesis } from './model'
 
 let webglSupport: boolean | undefined
@@ -37,8 +38,12 @@ type Mode = '3d' | 'sld'
  * single-line diagram, switchable from a segmented control.
  */
 export function SceneView(props: ComponentProps<typeof GridScene>) {
+  const { t } = useI18n()
   const [webgl, setWebgl] = useState(hasWebGL)
   const [mode, setMode] = useState<Mode>('3d')
+  // the diagram shows the AI's network once it has one; with the real network revealed, both can be compared
+  const [sldReal, setSldReal] = useState(false)
+  const hasAi = Boolean(props.overlay?.edges.length)
   // a dropped WebGL context (tab switch, memory pressure, too many contexts) remounts the scene;
   // only repeated failures fall back to the Canvas 2D view
   const [canvasKey, setCanvasKey] = useState(0)
@@ -79,8 +84,14 @@ export function SceneView(props: ComponentProps<typeof GridScene>) {
       ) : mode === '3d' && fallback}
       {mode === 'sld' && (
         <div className="plan2d-wrap">
-          <SingleLine model={props.overlay && !props.model.topologyKnown ? withHypothesis(props.model, props.overlay) : props.model}
+          <SingleLine model={hasAi && !(sldReal && props.model.topologyKnown) ? withHypothesis(props.model, props.overlay!) : props.model}
             selected={props.selected} onSelect={props.onSelect} />
+          {hasAi && props.model.topologyKnown && (
+            <div className="view-toggle sld-source" role="tablist" aria-label="Diagram source">
+              <button role="tab" aria-selected={!sldReal} onClick={() => setSldReal(false)}>{t("AI's network")}</button>
+              <button role="tab" aria-selected={sldReal} onClick={() => setSldReal(true)}>{t('Real network')}</button>
+            </div>
+          )}
           <div className="scene-controls scene-controls--top" role="toolbar" aria-label="Diagram controls">
             <FullscreenButton {...fullscreen} />
           </div>

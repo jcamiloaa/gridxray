@@ -553,3 +553,15 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .crew-tag.is-outdated { background: #d64545; }
 .crew-tag__icon { font-size: 15px; }
 @keyframes crew-tag-pulse { 50% { transform: scale(1.06); } }
+
+/* single-line diagram: the AI's network, how each connection was obtained and whether it was right */
+.sld-tag--wrong { font-weight: 700; fill: #d64545; font-size: 14px; }
+.sld-ai { position: absolute; z-index: 6; left: 120px; bottom: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px;
+  padding: 8px 12px; font-size: .8rem; color: var(--text); max-width: calc(100% - 520px); }
+.sld-ai b { color: var(--ink); }
+.sld-ai span { display: inline-flex; align-items: center; gap: 6px; }
+.sld-ai i { display: inline-block; width: 18px; height: 3px; border-radius: 2px; }
+.sld-ai i.is-dashed { height: 0; border-top: 3px dashed; background: none; }
+.sld-ai i.is-dotted { height: 0; border-top: 2px dotted; background: none; }
+.sld-legend__sub { margin-top: 4px; }
+.sld-source { top: 58px; }

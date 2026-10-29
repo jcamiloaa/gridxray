@@ -10,10 +10,14 @@ export interface SceneNode {
   location: [number, number] | null
 }
 
+export type EdgeStatus = 'measured' | 'inferred' | 'proposed' | 'uncertain' | 'correct' | 'wrong'
+
 export interface SceneEdge {
   from: number // upstream end (energy flows from -> to)
   to: number
   kind: LineKind
+  status?: EdgeStatus // the AI's connections: how it got each one and, after comparing, whether it is right
+  basis?: 'measured' | 'inferred' | 'proposed' | 'uncertain'
 }
 
 export interface SceneTie {
@@ -40,6 +44,7 @@ export interface GridModel {
   devices: DeviceInfo[] // capacitors and PV plants: location known even when wiring is not
   feeder: Record<number, number> // node -> feeder index, for coloured zones
   topologyKnown: boolean
+  missed?: [number, number][] // real connections the AI did not find (after comparing)
 }
 
 export function fromObservable(s: ObservableScenario): GridModel {
@@ -106,7 +111,7 @@ export const fromShowcase = (s: ObservableScenario & { truth: Truth }) => fromTr
 
 /** What the investigation overlays on the network: the AI's current tree and its latest experiment. */
 export interface Overlay {
-  edges: { child: number; parent: number; status: 'measured' | 'inferred' | 'proposed' | 'uncertain' | 'correct' | 'wrong' }[]
+  edges: { child: number; parent: number; status: EdgeStatus; basis?: 'measured' | 'inferred' | 'proposed' | 'uncertain' }[]
   missed?: [number, number][] // true connections the AI did not find (shown after reveal)
   focus?: { node: number; drops: Record<number, number> } // last load experiment
   // field crew on its way to / working at a site ("dispatch crew")
@@ -117,7 +122,8 @@ export interface Overlay {
 export function withHypothesis(model: GridModel, overlay: Overlay): GridModel {
   return {
     ...model,
-    edges: overlay.edges.map((e) => ({ from: e.parent, to: e.child, kind: 'overhead' as const })),
+    edges: overlay.edges.map((e) => ({ from: e.parent, to: e.child, kind: 'overhead' as const, status: e.status, basis: e.basis ?? (e.status === 'correct' || e.status === 'wrong' ? undefined : e.status) })),
+    missed: overlay.missed,
     ties: [],
     equipment: [],
     topologyKnown: true,

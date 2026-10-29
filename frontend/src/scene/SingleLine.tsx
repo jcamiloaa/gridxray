@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent, type WheelEvent } from 'react'
-import type { GridModel, SceneNode } from './model'
+import type { EdgeStatus, GridModel, SceneNode } from './model'
+import { useI18n } from '../i18n'
 import { voltageColor } from './palette'
 import { equipmentTags } from './tags'
 
@@ -13,6 +14,18 @@ interface Placed { id: number; x: number; y: number; parent: number | null }
 
 const INK = '#1f2a37'
 const UG = '#6c4fa3'
+const MISSED = '#8f99a4'
+
+/** How each of the AI's connections is drawn: colour = result, dashes = inferred rather than measured. */
+const AI_STYLE: Record<EdgeStatus, { color: string; width: number }> = {
+  measured: { color: '#0e6e8c', width: 2 },
+  proposed: { color: '#0e6e8c', width: 2 },
+  inferred: { color: '#e9a23b', width: 2 },
+  uncertain: { color: '#e9a23b', width: 2.4 },
+  correct: { color: '#17a673', width: 2.2 },
+  wrong: { color: '#d64545', width: 2.4 },
+}
+const aiDash = (basis?: string) => (basis === 'inferred' || basis === 'uncertain' ? '6 4' : undefined)
 
 /** Recloser (square with R), sectionalizer (switch blade) or fuse (rectangle with link). */
 function EquipmentSymbol({ kind, x, y, horizontal, tag }: { kind: 'recloser' | 'sectionalizer' | 'fuse'; x: number; y: number; horizontal: boolean; tag?: string }) {
@@ -84,9 +97,28 @@ function SecondarySub({ node, x, y, selected, onSelect }: {
 export function SingleLine({ model, selected, onSelect }: {
   model: GridModel; selected?: number | null; onSelect?: (id: number | null) => void
 }) {
+  const { t } = useI18n()
   const tags = useMemo(() => equipmentTags(model), [model])
   const byId = useMemo(() => new Map(model.nodes.map((n) => [n.id, n])), [model])
   const kindOf = useMemo(() => new Map(model.edges.map((e) => [e.to, e.kind])), [model]) // node -> its feeding line kind
+  const aiOf = useMemo(() => new Map(model.edges.filter((e) => e.status).map((e) => [e.to, e])), [model])
+  const ai = aiOf.size > 0
+  const stroke = (id: number) => {
+    const e = aiOf.get(id)
+    if (e?.status) return { stroke: AI_STYLE[e.status].color, strokeWidth: AI_STYLE[e.status].width, strokeDasharray: aiDash(e.basis) }
+    const ug = kindOf.get(id) === 'underground'
+    return { stroke: ug ? UG : INK, strokeWidth: ug ? 1.8 : 1.4, strokeDasharray: ug ? '9 3' : undefined }
+  }
+  const counts = useMemo(() => {
+    const c = { measured: 0, inferred: 0, correct: 0, wrong: 0, missed: model.missed?.length ?? 0 }
+    for (const e of aiOf.values()) {
+      if (e.basis === 'inferred' || e.basis === 'uncertain') c.inferred++; else c.measured++
+      if (e.status === 'correct') c.correct++
+      if (e.status === 'wrong') c.wrong++
+    }
+    return c
+  }, [aiOf, model.missed])
+  const compared = counts.correct + counts.wrong > 0
   const devicesAt = useMemo(() => {
     const m = new Map<number, string[]>()
     for (const d of model.devices) {
@@ -182,7 +214,9 @@ export function SingleLine({ model, selected, onSelect }: {
 
   const tieAnchor = (id: number) => {
     const p = drawing.pos.get(id)
-    return p ? { x: p.x + LABEL_W - 4, y: p.y } : null
+    if (p) return { x: p.x + LABEL_W - 4, y: p.y }
+    const sys = drawing.systems.find((x) => x.root === id) // a substation: its busbar
+    return sys ? { x: sys.busX1, y: BUS_Y } : null
   }
 
   return (
@@ -233,18 +267,14 @@ export function SingleLine({ model, selected, onSelect }: {
         {drawing.placed.map((p) => {
           if (p.parent === null) return null
           const q = drawing.pos.get(p.parent)!
-          const ug = kindOf.get(p.id) === 'underground'
-          return <path key={`l${p.id}`} d={`M${q.x} ${q.y} V${p.y} H${p.x}`} fill="none" stroke={ug ? UG : INK}
-            strokeWidth={ug ? 1.8 : 1.4} strokeDasharray={ug ? '9 3' : undefined} />
+          return <path key={`l${p.id}`} d={`M${q.x} ${q.y} V${p.y} H${p.x}`} fill="none" {...stroke(p.id)} />
         })}
         {/* feeder heads from the busbar */}
         {drawing.systems.flatMap((sys) => sys.feeders).map((f) => {
           const head = tags.feeders.find((x) => x.tag === f.tag)!.head
           const p = drawing.pos.get(head)
           if (!p) return null
-          const ug = kindOf.get(head) === 'underground'
-          return <line key={`h${f.tag}`} x1={f.x} y1={FEEDER_Y - 8} x2={f.x} y2={p.y} stroke={ug ? UG : INK}
-            strokeWidth={ug ? 1.8 : 1.4} strokeDasharray={ug ? '9 3' : undefined} />
+          return <line key={`h${f.tag}`} x1={f.x} y1={FEEDER_Y - 8} x2={f.x} y2={p.y} {...stroke(head)} />
         })}
         {/* switching and protection equipment, drawn on the section feeding each node */}
         {model.equipment.map((e, i) => {
@@ -280,6 +310,25 @@ export function SingleLine({ model, selected, onSelect }: {
           )
         })}
 
+        {/* real connections the AI did not find, routed to the right of the labels like open points */}
+        {model.missed?.map(([u, v], i) => {
+          const a = tieAnchor(u)
+          const b = tieAnchor(v)
+          if (!a || !b) return null
+          const xm = Math.max(a.x, b.x) + 18 + (i % 6) * 9
+          const name = (id: number) => byId.get(id)?.name ?? model.substations.find((x) => x.id === id)?.name ?? ''
+          return (
+            <g key={`m${u}-${v}`}>
+              <path d={`M${a.x} ${a.y} H${xm} V${b.y} H${b.x}`} fill="none" stroke={MISSED} strokeWidth={1.6} strokeDasharray="2 4" />
+              <title>{`Real connection not found by the AI: ${name(u)} – ${name(v)}`}</title>
+            </g>
+          )
+        })}
+        {/* the AI's mistakes, flagged next to the node they feed */}
+        {drawing.placed.map((p) => aiOf.get(p.id)?.status === 'wrong' && (
+          <text key={`w${p.id}`} x={p.x - 6} y={p.y - 6} className="sld-tag sld-tag--wrong" textAnchor="end">✗</text>
+        ))}
+
         {drawing.placed.map((p) => (
           <g key={p.id}>
             {p.parent !== null || model.topologyKnown ? <circle cx={p.x} cy={p.y} r={2.4} fill={INK} /> : null}
@@ -290,6 +339,18 @@ export function SingleLine({ model, selected, onSelect }: {
           </g>
         ))}
       </svg>
+      {ai && (
+        <div className="sld-ai card" aria-label="AI result summary">
+          <b>{compared ? t('AI network vs real network') : t("AI's network")}</b>
+          <span><i style={{ background: AI_STYLE.measured.color }} />{counts.measured} {t('sld.measured')}</span>
+          <span><i className="is-dashed" style={{ borderColor: AI_STYLE.inferred.color }} />{counts.inferred} {t('sld.inferred')}</span>
+          {compared && <>
+            <span><i style={{ background: AI_STYLE.correct.color }} />{counts.correct} {t('sld.correct')}</span>
+            <span><i style={{ background: AI_STYLE.wrong.color }} />{counts.wrong} {t('sld.wrong')}</span>
+            <span><i className="is-dotted" style={{ borderColor: MISSED }} />{counts.missed} {t('sld.missed')}</span>
+          </>}
+        </div>
+      )}
       {!legend ? (
         <button type="button" className="sld-legend-toggle" onClick={() => setLegend(true)} aria-expanded={false}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -306,6 +367,16 @@ export function SingleLine({ model, selected, onSelect }: {
         <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke={UG} strokeWidth="1.8" strokeDasharray="9 3" /></svg>Underground cable</span>
         <span><svg width="22" height="14"><rect x="4" y="0" width="14" height="14" fill="#fff" stroke={INK} strokeWidth="1.4" /><text x="11" y="11" textAnchor="middle" className="sld-sym">R</text></svg>Recloser · fuse ▭ · sectionalizer ⟋</span>
         <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke="#d64545" strokeWidth="1.6" strokeDasharray="4 3" /></svg>Open point: tie or open switch (N.O.)</span>
+        {ai && <>
+          <span className="sld-legend__sub"><b>{t("AI's network")}</b></span>
+          <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke={AI_STYLE.measured.color} strokeWidth="2" /></svg>{t('Measured: confirmed by experiments')}</span>
+          <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke={AI_STYLE.inferred.color} strokeWidth="2" strokeDasharray="6 4" /></svg>{t('Inferred: deduced, not measured (dashed)')}</span>
+          {compared && <>
+            <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke={AI_STYLE.correct.color} strokeWidth="2.2" /></svg>{t('Correct (dashed if it was inferred)')}</span>
+            <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke={AI_STYLE.wrong.color} strokeWidth="2.4" /></svg>{t('Wrong ✗ (dashed if it was inferred)')}</span>
+            <span><svg width="22" height="14"><line x1="2" y1="7" x2="20" y2="7" stroke={MISSED} strokeWidth="1.6" strokeDasharray="2 4" /></svg>{t('Real connection the AI missed')}</span>
+          </>}
+        </>}
         <span className="muted">Tags match the 3D view. Scroll to zoom, drag to pan.</span>
       </div>
       )}

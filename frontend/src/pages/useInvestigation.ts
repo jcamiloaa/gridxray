@@ -140,7 +140,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
       const real = new Set(truthEdges.map(([a, b]) => pairKey(a, b)))
       const proposed = new Set(edges.map((e) => pairKey(e.child, e.parent)))
       return {
-        edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: real.has(pairKey(e.child, e.parent)) ? 'correct' : 'wrong' })),
+        edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: real.has(pairKey(e.child, e.parent)) ? 'correct' : 'wrong', basis: e.basis })),
         missed: truthEdges.filter(([a, b]) => !proposed.has(pairKey(a, b))),
       }
     }
