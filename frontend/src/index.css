@@ -565,3 +565,9 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .sld-ai i.is-dotted { height: 0; border-top: 2px dotted; background: none; }
 .sld-legend__sub { margin-top: 4px; }
 .sld-source { top: 58px; }
+
+/* node labels stay small and quiet until hovered or selected */
+.scene-tag--compact { font-size: 9.5px; font-weight: 600; gap: 4px; padding: 1px 5px; border-radius: 6px;
+  background: rgba(255, 255, 255, .72); border-color: transparent; box-shadow: none; color: #3a4757; }
+.scene-tag--compact .scene-dot { width: 6px; height: 6px; }
+.scene-tag--active { font-size: 12px; padding: 3px 9px; background: #fff; }

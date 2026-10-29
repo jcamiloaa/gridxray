@@ -182,11 +182,12 @@ function LabelLayer({ subscribe, keys, model, tags, callouts, activeCallout, onC
         if (!props) return null
         const active = n.id === hovered || n.id === selected
         return (
-          <div key={n.id} className={`scene-tag scene-anchor${active ? ' scene-tag--active' : ''}`}
+          // compact chip by default; the voltage reading shows on hover or when the substation is selected
+          <div key={n.id} className={`scene-tag scene-anchor${active ? ' scene-tag--active' : ' scene-tag--compact'}`}
             {...props} style={{ zIndex: active ? 3 : 1 }}>
             <span className="scene-dot" style={{ background: voltageColor(n.metered ? n.vm : null) }} />
             {n.name}
-            {n.metered && n.vm !== null && <span className="scene-tag__v">{n.vm.toFixed(3)} pu</span>}
+            {active && n.metered && n.vm !== null && <span className="scene-tag__v">{n.vm.toFixed(3)} pu</span>}
           </div>
         )
       })}
