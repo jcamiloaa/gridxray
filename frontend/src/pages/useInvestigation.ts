@@ -24,6 +24,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   const [edges, setEdges] = useState<CandidateEdge[]>([])
   const [focus, setFocus] = useState<Overlay['focus']>()
   const [crew, setCrew] = useState<Overlay['crew']>()
+  const [incidents, setIncidents] = useState<NonNullable<Overlay['incidents']>>([])
   const [score, setScore] = useState<RunScore | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [truthEdges, setTruthEdges] = useState<[number, number][] | null>(null)
@@ -43,7 +44,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   // a new grid resets everything
   useEffect(() => {
     close.current()
-    setStatus('idle'); setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
+    setStatus('idle'); setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setIncidents([]); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
   }, [scenario])
   useEffect(() => () => close.current(), [])
 
@@ -60,6 +61,18 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
     // the field crew drives to the site and works there while the photo, SAM and the reading run
     if (e.kind === 'crew_dispatched' && idOf.has(String(e.node))) {
       setCrew({ visit: Number(e.visit), node: idOf.get(String(e.node))!, name: String(e.node), from: rootId, stage: 'photo' })
+    }
+    if (e.kind === 'intervention') { // show the event where it happened: arc at the switch, smoke at the meter
+      const sws = (e.switches ?? []) as { id: number; closed: boolean; between: string[] }[]
+      const off = (e.meters_off ?? []) as string[]
+      const add: NonNullable<Overlay['incidents']> = [
+        ...sws.flatMap((w) => {
+          const site = [...w.between].reverse().find((n) => idOf.has(n) && n !== 'Substation')
+          return site ? [{ id: `${e.t}-sw${w.id}`, node: idOf.get(site)!, kind: 'switch' as const, label: `SW-${w.id}`, state: (w.closed ? 'closed' : 'open') as 'open' | 'closed' }] : []
+        }),
+        ...off.filter((n) => idOf.has(n)).map((n) => ({ id: `${e.t}-m${n}`, node: idOf.get(n)!, kind: 'meter' as const, label: n })),
+      ]
+      setIncidents((list) => [...list, ...add])
     }
     if (e.kind === 'crew_stage') {
       setCrew((c) => (c && c.visit === Number(e.visit) ? { ...c, stage: e.stage as 'photo' | 'segment' | 'read' } : c))
@@ -80,7 +93,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   const start = useCallback(async (budget: number, language = 'en') => {
     if (!generated) return
     close.current()
-    setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
+    setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setIncidents([]); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     try {
       const { id } = await startInvestigation(generated.source, generated.seed, budget, language)
       setRunId(id)
@@ -95,7 +108,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   /** Follow a run that is already going (e.g. after a page reload). */
   const attach = useCallback((id: string) => {
     close.current()
-    setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
+    setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setIncidents([]); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     setRunId(id)
     setStatus('running')
     close.current = streamInvestigation(id, onEvent, () => setError('Lost the live connection to the investigation.'))
@@ -138,17 +151,18 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   }, [generated, events, runId])
 
   const overlay = useMemo<Overlay | undefined>(() => {
-    if (!edges.length) return crew ? { edges: [], crew } : undefined
+    if (!edges.length) return crew || incidents.length ? { edges: [], crew, incidents } : undefined
     if (truthEdges) {
       const real = new Set(truthEdges.map(([a, b]) => pairKey(a, b)))
       const proposed = new Set(edges.map((e) => pairKey(e.child, e.parent)))
       return {
         edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: real.has(pairKey(e.child, e.parent)) ? 'correct' : 'wrong', basis: e.basis })),
         missed: truthEdges.filter(([a, b]) => !proposed.has(pairKey(a, b))),
+        incidents,
       }
     }
-    return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus, crew }
-  }, [edges, focus, crew, truthEdges])
+    return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus, crew, incidents }
+  }, [edges, focus, crew, incidents, truthEdges])
 
   /** Found vs real, node by node: the AI's proposed parent against the true one. */
   const comparison = useMemo(() => {

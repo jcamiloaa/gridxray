@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
+import { money, pct } from '../money'
 import { useI18n } from '../i18n'
 
 interface Score { f1: number; experiments: number; correct_edges: number; total_edges: number; wrong_edges: number; wrong_and_flagged: number }
-interface SummaryRow { level: string; runs: number; budget_by_level: number; correct: number; total: number; accuracy: number; f1: number; experiments: number; wrong: number; flagged: number; calibration: number }
+interface SummaryRow { level: string; runs: number; budget_by_level: number; correct: number; total: number; accuracy: number; f1: number; experiments: number; wrong: number; flagged: number; calibration: number; cost_usd?: number; seconds?: number; reviews?: number }
 interface BenchRow { level: string; seed: number; budget: number; reviews: number; seconds: number; tokens: number; gridxray: Score | null; meta_inference?: boolean }
 interface Evidence {
   benchmark: { rows: BenchRow[]; summary: SummaryRow[] }
+  ablation: { with_wonder: SummaryRow[]; spark_only: SummaryRow[] } | null
   tests: { total: number; passed: number; failed: number; seconds: number; tests: { name: string; area: string; outcome: string }[] } | null
   guarantees: { claim: string; how: string; tests: string[] }[]
   scoring: { metric: string; methods: Record<string, string>; calibration: string }
@@ -48,7 +50,7 @@ export function EvidenceView({ onClose, page = false }: { onClose?: () => void; 
                     <span className="bench-bar__track"><i style={{ width: `${row.calibration * 100}%`, background: '#e9a23b' }} /></span>
                     <span className="bench-bar__val">{row.flagged}/{row.wrong} <small>· {Math.round(row.calibration * 100)}%</small></span>
                   </div>
-                  <small className="muted">F1 {row.f1.toFixed(2)} · {row.experiments} {t('exp.')}</small>
+                  <small className="muted">F1 {pct(row.f1)} · {row.experiments} {t('exp.')}</small>
                 </div>
               ))}
               <details>
@@ -60,7 +62,7 @@ export function EvidenceView({ onClose, page = false }: { onClose?: () => void; 
                       const g = r.gridxray
                       return (
                         <tr key={i}><td>{r.level}</td><td>{r.seed}</td>
-                          <td>{g ? `${g.correct_edges}/${g.total_edges}` : '—'}</td><td>{g ? g.f1.toFixed(2) : '—'}</td>
+                          <td>{g ? `${g.correct_edges}/${g.total_edges}` : '—'}</td><td>{g ? pct(g.f1) : '—'}</td>
                           <td>{g?.wrong_edges ?? '—'}</td><td>{g ? `${g.wrong_and_flagged}/${g.wrong_edges}` : '—'}</td>
                           <td>{r.reviews}</td><td>{Math.round(r.seconds)} s</td></tr>
                       )
@@ -70,6 +72,35 @@ export function EvidenceView({ onClose, page = false }: { onClose?: () => void; 
               </details>
               <p className="explain">{t('bench.honest')}</p>
             </div>
+
+            {ev.ablation && (
+              <div className="evidence__block evidence__block--wide">
+                <h3>{t('Ablation: Muse Spark alone vs Muse Spark + Muse Wonder')}</h3>
+                <p className="muted">{t('ablation.intro')}</p>
+                {ev.ablation.with_wonder.map((w) => {
+                  const s1 = ev.ablation!.spark_only.find((x) => x.level === w.level)
+                  if (!s1) return null
+                  const arms: [string, SummaryRow, string][] = [[t('Spark alone'), s1, '#8f99a4'], [t('Spark + Wonder'), w, '#0e6e8c']]
+                  return (
+                    <div key={w.level} className="bench-level">
+                      <b>{t(w.level[0].toUpperCase() + w.level.slice(1))} · {w.runs} {t('runs')} {t('each')} · {t('budget')} {w.budget_by_level}</b>
+                      {arms.map(([label, row, color]) => (
+                        <div key={label} className="bench-bar">
+                          <span className="bench-bar__label">{label}</span>
+                          <span className="bench-bar__track"><i style={{ width: `${row.accuracy * 100}%`, background: color }} /></span>
+                          <span className="bench-bar__val">{row.correct}/{row.total} <small>· {Math.round(row.accuracy * 100)}% · F1 {pct(row.f1)}</small></span>
+                        </div>
+                      ))}
+                      <small className="muted">
+                        {t('Wrong, flagged as uncertain')}: {s1.flagged}/{s1.wrong} → {w.flagged}/{w.wrong} ·{' '}
+                        {t('cost per run')}: {money(s1.cost_usd ?? 0)} → {money(w.cost_usd ?? 0)} ·{' '}
+                        {t('time')}: {s1.seconds ?? 0} s → {w.seconds ?? 0} s · {t('Wonder reviews')}: {w.reviews ?? 0}
+                      </small>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
 
             <div className="evidence__block">
               <h3>{t('How results are scored')}</h3>
@@ -119,7 +150,7 @@ export function EvidenceView({ onClose, page = false }: { onClose?: () => void; 
               <div className="evidence__block evidence__block--wide">
                 <h3>{t('Investigations run on this server')}</h3>
                 <div className="stats" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
-                  {ev.live_f1.map((l) => <div key={l.source} className="stat"><b>{l.mean_f1.toFixed(2)}</b><span>{l.source} · {l.runs} {t('runs')} · F1</span></div>)}
+                  {ev.live_f1.map((l) => <div key={l.source} className="stat"><b>{pct(l.mean_f1)}</b><span>{l.source.startsWith('custom:') ? t('Designed network') : l.source} · {l.runs} {t('runs')} · F1</span></div>)}
                 </div>
               </div>
             )}

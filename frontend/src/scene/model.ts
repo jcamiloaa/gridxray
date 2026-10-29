@@ -115,8 +115,18 @@ export interface Overlay {
   missed?: [number, number][] // true connections the AI did not find (shown after reveal)
   focus?: { node: number; drops: Record<number, number> } // last load experiment
   // field crew on its way to / working at a site ("dispatch crew")
+  // what you changed in the field during the run, shown where it happened
+  incidents?: { id: string; node: number; kind: 'meter' | 'switch'; label: string; state?: 'open' | 'closed' }[]
   crew?: { visit: number; node: number; name: string; from?: number; stage: 'photo' | 'segment' | 'read' | 'done'; outdated?: boolean }
+  /** Differences view after comparing: the AI's tree drawn on the streets, coloured by outcome, with node rings. */
+  diff?: {
+    highlight: DiffKind | null // isolate one outcome; the others fade
+    notes: { node: number; ai: string; real: string }[] // wrong parents, labelled in the scene
+    words: { ai: string; real: string } // translated labels for those notes
+  }
 }
+
+export type DiffKind = 'correct' | 'wrong' | 'missed'
 
 /** A model whose edges are the AI's hypothesis, for the single-line diagram. */
 export function withHypothesis(model: GridModel, overlay: Overlay): GridModel {

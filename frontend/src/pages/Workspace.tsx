@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { money } from '../money'
+import { money, pct } from '../money'
 import { createScenario, getActiveInvestigation, getTruth, grids, sourceOf, type Design, type GridSummary, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
 import { FieldPanel } from '../components/FieldPanel'
 import { GridEditor } from '../components/GridEditor'
@@ -13,9 +13,11 @@ import { Timeline } from '../components/Timeline'
 import { UsageDrawer } from '../components/UsageDrawer'
 import { LanguageToggle, useI18n } from '../i18n'
 import { SceneView } from '../scene/SceneView'
-import { fromObservable, fromTruth } from '../scene/model'
+import { fromObservable, fromTruth, type DiffKind, type Overlay } from '../scene/model'
 import { voltageColor, voltageLabel } from '../scene/palette'
 import { useInvestigation } from './useInvestigation'
+
+type CompareView = 'ai' | 'diff' | 'real'
 
 interface SourceOption { key: string; source: ScenarioSource; title: string; text: string }
 
@@ -69,6 +71,10 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
   const { t, lang } = useI18n()
 
   const run = useInvestigation(scenario, generated)
+  // after comparing: which network the scene shows, and which outcome is isolated in the differences view
+  const [cmpView, setCmpView] = useState<CompareView>('diff')
+  const [cmpFilter, setCmpFilter] = useState<DiffKind | null>(null)
+  useEffect(() => { setCmpView('diff'); setCmpFilter(null) }, [run.compared])
   const [budget, setBudget] = useState(10)
 
   // open an investigation (live or finished): load its network, then follow or replay its events
@@ -100,8 +106,46 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
 
   const model = useMemo(() => {
     if (!scenario) return null
-    return revealed && truth ? fromTruth(scenario, truth) : fromObservable(scenario)
-  }, [scenario, revealed, truth])
+    const showReal = run.compared ? cmpView === 'real' : revealed
+    return showReal && truth ? fromTruth(scenario, truth) : fromObservable(scenario)
+  }, [scenario, revealed, truth, run.compared, cmpView])
+
+  /** What the scene draws on top of the network: live hypothesis, or after comparing one of three views. */
+  const sceneOverlay = useMemo<Overlay | undefined>(() => {
+    const o = run.overlay
+    if (!o || !run.compared) return o
+    if (cmpView === 'real') return o.crew ? { edges: [], crew: o.crew } : undefined
+    if (cmpView === 'ai') return { ...o, missed: undefined, edges: o.edges.map((e) => ({ ...e, status: e.basis ?? 'proposed' })) }
+    const idByName = new Map(scenario?.nodes.map((n) => [n.name, n.id]))
+    const notes = (run.comparison?.wrong ?? []).filter((r) => idByName.has(r.node)).map((r) => ({ node: idByName.get(r.node)!, ai: r.ai, real: r.real }))
+    return { ...o, diff: { highlight: cmpFilter, notes, words: { ai: t('AI'), real: t('Real') } } }
+  }, [run.overlay, run.compared, run.comparison, cmpView, cmpFilter, scenario, t])
+  const diffCounts = run.overlay && run.compared ? {
+    correct: run.overlay.edges.filter((e) => e.status === 'correct').length,
+    wrong: run.overlay.edges.filter((e) => e.status === 'wrong').length,
+    missed: run.overlay.missed?.length ?? 0,
+  } : null
+
+  async function chooseView(v: CompareView) {
+    if (v === 'real' && !truth && generated) {
+      try {
+        setTruth((await getTruth(generated.source, generated.seed)).truth)
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e))
+        return
+      }
+    }
+    setCmpView(v)
+    if (v !== 'diff') setCmpFilter(null)
+  }
+
+  /** From the comparison table: select a secondary substation and show it in the differences view. */
+  function selectByName(name: string) {
+    const id = scenario?.nodes.find((n) => n.name === name)?.id
+    if (id === undefined) return
+    setSelected(id)
+    setCmpView('diff')
+  }
 
   async function toggleReveal() {
     if (!revealed && !truth && generated) {
@@ -296,7 +340,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                       <thead><tr><th>{t('Against the real network')}</th><th>{t('Correct')}</th><th>F1</th><th>{t('Exp.')}</th></tr></thead>
                       <tbody>
                         <tr className="score-card__us"><td>GridXray</td><td>{run.score.gridxray.correct_edges}/{run.score.gridxray.total_edges}</td>
-                          <td>{run.score.gridxray.f1.toFixed(2)}</td><td>{run.score.gridxray.experiments}</td></tr>
+                          <td>{pct(run.score.gridxray.f1)}</td><td>{run.score.gridxray.experiments}</td></tr>
                       </tbody>
                     </table>
                     <small className="muted">{t('Scored against the real network by an independent checker with no AI involved.')} {run.score.gridxray.wrong_edges} {t('wrong')}
@@ -316,7 +360,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
           {model ? (
             <>
               <SceneView model={model} selected={selected} onSelect={setSelected} showLabels={labels} flow citySeed={scenario?.seed ?? 0}
-                overlay={run.overlay}>
+                overlay={sceneOverlay}>
               {run.events.length > 0 && (
                 <div className="ws-overlay ws-timeline card" aria-label={t('Investigation log')} style={{ width: logWidth }}>
                   <div className="ws-timeline__resize" onPointerDown={startResize} role="separator" aria-orientation="vertical"
@@ -333,7 +377,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                   {run.score?.gridxray && (
                     <div className="run-result">
                       <div className="run-result__head">
-                        <span className="run-result__f1">{run.score.gridxray.f1.toFixed(2)}</span>
+                        <span className="run-result__f1">{pct(run.score.gridxray.f1)}</span>
                         <span><b>{run.score.gridxray.correct_edges}/{run.score.gridxray.total_edges}</b> {t('real connections recovered')} · F1
                           <br /><small className="muted">{run.score.gridxray.experiments} {t('experiments')} · {run.score.gridxray.wrong_edges} {t('wrong')}, {
                             run.score.gridxray.wrong_and_flagged} {t('flagged as uncertain')}</small></span>
@@ -361,13 +405,13 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                           <div className="compare__stats">
                             <span className="compare__ok">✓ {run.comparison.correct} {t('correct')}</span>
                             <span className="compare__bad">✗ {run.comparison.wrong.length} {t('wrong')}</span>
-                            <button className={revealed ? 'btn-primary' : ''} onClick={toggleReveal}>{revealed ? t('Hide true network') : t('Show the real network')}</button>
                           </div>
                           <table className="compare__table">
                             <thead><tr><th>{t('Node')}</th><th>{t('AI said')}</th><th>{t('Real')}</th></tr></thead>
                             <tbody>
                               {run.comparison.rows.map((r) => (
-                                <tr key={r.node} className={r.ok ? 'is-ok' : 'is-bad'}>
+                                <tr key={r.node} className={r.ok ? 'is-ok' : 'is-bad'} tabIndex={0} title={t('Show on the map')}
+                                  onClick={() => selectByName(r.node)} onKeyDown={(e) => { if (e.key === 'Enter') selectByName(r.node) }}>
                                   <td>{r.node}</td><td>{r.ai}{r.flagged ? ' ?' : ''}</td><td>{r.ok ? '✓' : r.real}</td>
                                 </tr>
                               ))}
@@ -393,12 +437,38 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 </div>
               )}
               <div className="ws-overlay ws-legend card">
-                {revealed ? (
+                {run.compared && diffCounts && (
+                  <div className="cmp-panel">
+                    <b>{t('Compare with the real network')}</b>
+                    <div className="cmp-switch" role="tablist" aria-label={t('Compare with the real network')}>
+                      {(['ai', 'diff', 'real'] as CompareView[]).map((v) => (
+                        <button key={v} role="tab" aria-selected={cmpView === v} onClick={() => chooseView(v)}>
+                          {t(v === 'ai' ? 'AI' : v === 'real' ? 'Real' : 'Differences')}</button>
+                      ))}
+                    </div>
+                    {cmpView === 'diff' && (
+                      <>
+                        {([['correct', 'Found by the AI', diffCounts.correct], ['wrong', 'Wrong: does not exist', diffCounts.wrong],
+                          ['missed', 'Real, missed by the AI', diffCounts.missed]] as [DiffKind, string, number][]).map(([k, label, n]) => (
+                          <button key={k} className={`cmp-row cmp-row--${k}`} aria-pressed={cmpFilter === k}
+                            onClick={() => setCmpFilter((f) => (f === k ? null : k))}>
+                            <span className="cmp-row__line" /><span>{t(label)}</span><b>{n}</b>
+                          </button>
+                        ))}
+                        <span className="muted cmp-hint">{t('cmp.hint')}</span>
+                      </>
+                    )}
+                    {cmpView === 'ai' && (
+                      <span className="muted cmp-hint">{t('cmp.ai')}</span>
+                    )}
+                  </div>
+                )}
+                {run.compared && cmpView !== 'real' ? null : revealed || (run.compared && cmpView === 'real') ? (
                   <span className="legend-note"><Icon name="eye" size={16} /><span><b>{t('True network revealed.')}</b> {t('reveal.note')}</span></span>
                 ) : (
                   <span className="legend-note"><Icon name="eye" size={16} /><span><b>{t('Connections are hidden.')}</b> {t('hidden.note')}</span></span>
                 )}
-                {revealed && (
+                {(run.compared ? cmpView === 'real' : revealed) && (
                   <>
                     <b>{t('Lines')}</b>
                     <span className="legend-row"><span className="legend-line" style={{ background: '#4a5561' }} />{t('Overhead line (on poles)')}</span>
@@ -406,6 +476,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                     <span className="legend-row"><span className="legend-line legend-line--dashed" />{t('Open point (tie / open switch)')}</span>
                   </>
                 )}
+                {!(run.compared && cmpView !== 'real') && <>
                 <b>{t('Meter readings')}</b>
                 {[[0.99, '≥ 0.97 pu'], [0.94, '0.90–0.97 pu'], [0.85, '< 0.90 pu']].map(([v, range]) => (
                   <span key={v} className="legend-row"><span className="legend-swatch" style={{ background: voltageColor(v as number) }} />{t(voltageLabel(v as number))}
@@ -414,6 +485,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 <span className="legend-row"><span className="legend-swatch" style={{ background: voltageColor(null) }} />{t('Missing reading')}</span>
                 <span className="legend-row"><span className="legend-swatch" style={{ background: '#c3cad2', borderRadius: 3 }} />{t('No meter installed')}</span>
                 <span className="muted" style={{ fontSize: '.78rem' }}>{t('kiosk.note')}</span>
+                </>}
               </div>
               <div className="ws-overlay ws-toolbar">
                 <button onClick={() => setLabels((l) => !l)} aria-pressed={labels}>{labels ? t('Hide labels') : t('Show labels')}</button>

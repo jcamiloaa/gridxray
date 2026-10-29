@@ -23,6 +23,16 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
   const { t } = useI18n()
   // the field crew, read by the render loop: truck on the streets, then the photo flash at the site
   const crew = useRef<{ c: NonNullable<Overlay['crew']>; t0: number; texts: Record<string, string> } | null>(null)
+  // incidents you caused in the field, with the time each one was first seen (for the spark burst)
+  const incidents = useRef(new Map<string, { inc: NonNullable<Overlay['incidents']>[number]; t0: number; text: string }>())
+  for (const inc of overlay?.incidents ?? []) {
+    if (!incidents.current.has(inc.id)) {
+      incidents.current.set(inc.id, { inc, t0: performance.now(), text: inc.kind === 'meter'
+        ? t('Meter {node} offline').split('{node}').join(inc.label)
+        : t('{sw} operated → {state}').split('{sw}').join(inc.label).split('{state}').join(t(inc.state ?? '')) })
+    }
+  }
+  if (!overlay?.incidents?.length) incidents.current.clear()
   const c = overlay?.crew
   if (!c) crew.current = null
   else if (crew.current?.c.visit !== c.visit || crew.current.c.stage !== c.stage || crew.current.c.outdated !== c.outdated) {
@@ -239,6 +249,47 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           ctx.fillStyle = palette.ink
           ctx.fillText(n.name, px, py + 2)
         }
+      }
+
+      for (const { inc, t0, text } of incidents.current.values()) {
+        const at = scene.pos.get(inc.node)
+        if (!at) continue
+        const age = (now - t0) / 1000
+        const flash = age < 3.5 ? 1 - age / 3.5 : 0
+        if (flash > 0) { // arc flash and sparks
+          const [fx, fy] = project([at[0], 1.3, at[1]])
+          if (Math.sin(now / 18) > 0.2) {
+            ctx.beginPath(); ctx.arc(fx, fy, s * (0.5 + Math.random() * 0.6), 0, 7)
+            ctx.fillStyle = `rgba(200, 235, 255, ${0.9 * flash})`; ctx.fill()
+          }
+          for (let i = 0; i < 12; i++) {
+            const k = (age * 1.4 + (i % 5) * 0.11) % 1.1
+            if (k >= 1) continue
+            const a = (i / 12) * Math.PI * 2
+            const [sx, sy] = project([at[0] + Math.cos(a) * k, 1.2 + (1.6 + (i % 4) * 0.45) * k - 4.9 * k * k, at[1] + Math.sin(a) * k])
+            ctx.fillStyle = i % 3 ? '#ffd166' : '#ffffff'
+            ctx.fillRect(sx - 1.5, sy - 1.5, 3, 3)
+          }
+        }
+        if (inc.kind === 'meter') { // smoke that keeps rising and a blinking red fault light
+          for (let i = 0; i < 8; i++) {
+            const k = (age * 0.32 + i / 8) % 1
+            const [px, py] = project([at[0] + Math.sin(i * 2.1 + age * 0.6) * 0.25 * k, 1.3 + k * 3.2, at[1]])
+            ctx.beginPath(); ctx.arc(px, py, s * (0.25 + k * 0.9), 0, 7)
+            ctx.fillStyle = `rgba(91, 97, 104, ${0.45 * (1 - k) * Math.min(1, age * 2)})`; ctx.fill()
+          }
+          const [rx, ry] = project([at[0] + 0.6, 1.2, at[1] + 0.6])
+          ctx.beginPath(); ctx.arc(rx, ry, Math.max(3, s * 0.18), 0, 7)
+          ctx.fillStyle = Math.sin(now / 160) > 0 ? '#ff2a2a' : '#6b1d1d'; ctx.fill()
+        }
+        const [lx3, ly3] = project([at[0], 4.6, at[1]])
+        ctx.font = '700 12px Inter, system-ui, sans-serif'
+        ctx.textAlign = 'center'
+        const w3 = ctx.measureText(text).width + 30
+        ctx.fillStyle = inc.kind === 'meter' ? '#b03030' : '#1f6fb2'
+        ctx.beginPath(); ctx.roundRect(lx3 - w3 / 2, ly3 - 11, w3, 22, 11); ctx.fill()
+        ctx.fillStyle = '#fff'
+        ctx.fillText(`${inc.kind === 'meter' ? '🔥' : '⚡'} ${text}`, lx3, ly3 + 4)
       }
 
       const cr = crew.current

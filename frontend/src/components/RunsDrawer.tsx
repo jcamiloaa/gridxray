@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { money } from '../money'
+import { money, pct } from '../money'
 import { listRuns, resumeRun, stopRun, type RunSummary } from '../api/client'
 import { useI18n } from '../i18n'
 
@@ -39,7 +39,7 @@ export function RunsDrawer({ onOpen, onClose }: { onOpen: (r: RunSummary) => voi
               <div className="runs-list__meta">
                 <span>{new Date(r.created_at).toLocaleString()}</span>
                 <span>{t('Experiments')}: {r.experiments}/{r.budget}</span>
-                {r.f1 !== null && <span>F1 <b>{r.f1.toFixed(2)}</b></span>}
+                {r.f1 !== null && <span>F1 <b>{pct(r.f1)}</b></span>}
                 <span>{Math.round(r.tokens / 1000)}k tokens · {money(r.cost_usd)}</span>
               </div>
               <div className="row">

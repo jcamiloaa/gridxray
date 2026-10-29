@@ -43,12 +43,11 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
     setMsg(null)
     try {
       await field.intervene(runId, [...toggle], [...off])
-      setMsg({ ok: true, text: t('Applied in the field. The AI was not told: watch whether it notices.') })
+      setMsg({ ok: true, text: 'Applied in the field. The AI was not told: watch whether it notices.' })
       setToggle(new Set()); setOff(new Set())
       load()
     } catch (e) {
-      const text = e instanceof Error ? e.message : String(e)
-      setMsg({ ok: false, text: lang === 'es' ? inSpanish(text) : text })
+      setMsg({ ok: false, text: e instanceof Error ? e.message : String(e) })
     } finally {
       setBusy(false)
     }
@@ -97,7 +96,7 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
           <button className="btn-primary" onClick={apply} disabled={busy || (!toggle.size && !off.size)}>
             {busy ? t('Applying…') : t('Apply in the field')}
           </button>
-          {msg && <p className={msg.ok ? 'field-ok' : 'error'}>{msg.text}</p>}
+          {msg && <p className={msg.ok ? 'field-ok' : 'error'}>{msg.ok ? t(msg.text) : lang === 'es' ? inSpanish(msg.text) : msg.text}</p>}
         </>
       )}
     </div>

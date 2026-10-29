@@ -159,6 +159,16 @@ const ES: Record<string, string> = {
   pole: 'poste', kiosk: 'kiosco', overhead: 'aérea', underground: 'subterránea', confidence: 'confianza', switch: 'interruptor', transformer: 'transformador',
   insulator: 'aislador', tag: 'placa', cable: 'cable', 'kiosk door': 'puerta del kiosco',
   'Record outdated': 'Registro desactualizado',
+  "Meter {node} offline": "Medidor {node} fuera de servicio",
+  "{sw} operated → {state}": "{sw} maniobrado → {state}",
+  "Ablation: Muse Spark alone vs Muse Spark + Muse Wonder": "Ablación: Muse Spark solo vs. Muse Spark + Muse Wonder",
+  "Spark alone": "Spark solo",
+  "Spark + Wonder": "Spark + Wonder",
+  "each": "cada una",
+  "cost per run": "costo por corrida",
+  "time": "tiempo",
+  "Designed network": "Red diseñada",
+  "ablation.intro": "Mismas redes, semillas y presupuestos. \"Spark solo\" no tiene revisiones de Wonder ni su voto en el ensamble; todo lo demás es igual. Puntuado contra la red real por el verificador sin IA.",
   "My networks": "Mis redes",
   "Design a network": "Diseñar una red",
   "Draw substations, cables and switches; then let the AI discover it": "Dibuja subestaciones, cables e interruptores; luego deja que la IA la descubra",
@@ -252,6 +262,11 @@ const ES: Record<string, string> = {
   'crew.how': 'Muse Image dibuja el sitio a partir de lo que hay físicamente en el simulador (el texto de abajo, incluida la posición REAL del interruptor), como lo vería una cuadrilla. SAM 3.1 segmenta los equipos en la foto y Muse Spark la lee. El investigador nunca recibe este texto: solo la lectura de la foto, que puede equivocarse si la imagen es ambigua.',
   // guide
   'How to use the workspace': 'Cómo usar el área de trabajo',
+  // comparison views
+  AI: 'IA', Differences: 'Diferencias', 'Found by the AI': 'Encontradas por la IA', 'Wrong: does not exist': 'Erróneas: no existen',
+  'Real, missed by the AI': 'Reales que la IA no encontró', 'Show on the map': 'Ver en el mapa',
+  'cmp.hint': 'Cada conexión real aparece una vez: verde si la IA la encontró, gris punteada si no. Rojo = la IA la inventó. El anillo de cada subestación indica si acertó su conexión. Haz clic en una fila para aislarla.',
+  'cmp.ai': 'Lo que propuso la IA, sin ver la red real: azul = confirmado por experimentos, ámbar = inferido.',
 }
 
 const LangContext = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (key: string, vars?: Record<string, string | number>) => string }>({
@@ -285,6 +300,7 @@ const EN_LONG: Record<string, string> = {
   'key.env': 'The key from backend/.env is used. A key saved here takes priority.',
   'crew.how': 'Muse Image draws the site from what is physically there in the simulator (the text below, including the switch\'s REAL position), as a crew would see it. SAM 3.1 segments the equipment in the photo and Muse Spark reads it. The investigator never receives this text: only the reading of the photo, which can be wrong if the picture is ambiguous.',
   'reveal.note': 'Lines, cables and equipment as they really are. The AI never sees this view.',
+  "ablation.intro": "Same networks, seeds and budgets. \"Spark alone\" has no Wonder reviews and no Wonder vote in the ensemble; everything else is identical. Scored against the real network by the checker with no AI.",
   "editor.hint.select": "Click an item to edit it. With a substation selected, click an empty block to move it there.",
   "editor.hint.node": "Click an empty block to place a secondary substation.",
   "editor.hint.cable": "Click a substation, then another, to join them. Keep clicking to chain sections; Esc to finish.",
@@ -296,6 +312,8 @@ const EN_LONG: Record<string, string> = {
   "detected.note": "The baseline readings moved although the AI operated nothing: someone changed the network. Earlier experiments describe the old topology and no longer count.",
   "field.info": "As in a real network: an operator switches, or a meter stops reporting, while the investigation runs. The AI is not told.",
   "field.tip": "To transfer load without a loop: close a tie (T) and open a sectionalizer in the same loop, in one operation.",
+  'cmp.hint': 'Every real connection appears once: green if the AI found it, grey dashed if it missed it. Red = the AI made it up. Each substation’s ring shows whether its own connection is right. Click a row to isolate it.',
+  'cmp.ai': 'What the AI proposed without ever seeing the real network: blue = confirmed by experiments, amber = inferred.',
   'sld.measured': 'measured', 'sld.inferred': 'inferred', 'sld.correct': 'correct', 'sld.wrong': 'wrong', 'sld.missed': 'missed',
   'hidden.note': 'You see where equipment is, not how it is wired: that is what the AI will discover.',
   'kiosk.note': 'Each kiosk stands for the homes and shops it supplies. Click one to read its meter.',
