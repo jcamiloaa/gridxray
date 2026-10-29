@@ -98,7 +98,7 @@ class Consensus:
 
 
 def consensus(obs: ObservableGrid, ev: Evidence, passive: Passive | None, meta: Candidate | None = None,
-              plan: Candidate | None = None) -> Consensus:
+              plan: Candidate | None = None, plan_weight: int = 1) -> Consensus:
     """Ensemble of physics (experiments), traditional ML (correlations), geography and the Meta
     model's own inference from the raw experiment data.
 
@@ -112,8 +112,10 @@ def consensus(obs: ObservableGrid, ev: Evidence, passive: Passive | None, meta: 
         methods["correlation"] = passive.tree
     if meta:
         methods["meta_ai"] = meta
-    if plan:  # the utility's drawing, counted only when the planning agent trusts it
+    if plan:  # the utility's drawing, counted only when the planning agent trusts it (twice when it trusts it a lot)
         methods["plan"] = plan
+        if plan_weight > 1:
+            methods["plan (trusted)"] = plan
     parent, agreement, votes, uncertain = {}, {}, {}, []
     for n in (x.id for x in obs.nodes):
         ballot: dict[int, list[str]] = {}

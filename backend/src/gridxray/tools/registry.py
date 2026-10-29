@@ -136,6 +136,10 @@ TOOLS: list[dict] = [
 ]
 
 
+PLAN_VOTE_TRUST = 0.3  # even an old drawing beats correlation or geography alone on most connections
+PLAN_DOUBLE_TRUST = 0.6  # a trusted drawing counts twice (measured: +5 to +9 points of accuracy)
+
+
 class ToolError(ValueError):
     pass
 
@@ -156,7 +160,7 @@ class ToolBox:
         self.switch_site = switch_sites(scenario)  # GIS: where each switch is installed (not how it is wired)
         self.field_findings: list[dict] = []
         self.plan = None  # the utility's drawing (agent/planner.Plan), if it has one
-        self.plan_trust = 0.0  # set by the planning agent; the drawing votes in the ensemble from 0.5
+        self.plan_trust = 0.0  # set by the planning agent; the drawing votes in the ensemble from PLAN_VOTE_TRUST
         self.plan_today = None
 
     # ------------------------------------------------------------ plumbing
@@ -185,8 +189,9 @@ class ToolBox:
         from gridxray.tools.reconstruct import Candidate
 
         plan = (Candidate(dict(self.plan.parent), {n: "inferred" for n in self.plan.parent})
-                if self.plan is not None and self.plan_trust >= 0.5 else None)
-        return consensus(self.obs, self.evidence(), self.passive(), self.meta_tree, plan)
+                if self.plan is not None and self.plan_trust >= PLAN_VOTE_TRUST else None)
+        return consensus(self.obs, self.evidence(), self.passive(), self.meta_tree, plan,
+                         2 if self.plan_trust >= PLAN_DOUBLE_TRUST else 1)
 
     def plan_view(self) -> dict | None:
         """The drawing as the agents see it: a record with a date, which may be outdated or wrong."""

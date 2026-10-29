@@ -17,7 +17,7 @@ from gridxray.config import Settings, settings
 from gridxray.lab import Scenario
 from gridxray.pricing import add_images, add_usage, summarize
 from gridxray.tools import TOOLS, ToolBox
-from gridxray.tools.registry import ToolError, dumps
+from gridxray.tools.registry import PLAN_VOTE_TRUST, ToolError, dumps
 
 MAX_RECOVERIES = 3  # times the conversation may be rebuilt after the server drops it
 STALL_STEPS = 8  # turns without an accepted experiment before Wonder is called in
@@ -469,7 +469,7 @@ class Investigator:
                                 for c, p in plan.parent.items()],
                       "missing": [names.get(x) for x in plan.missing]})
         self.planner_brief = (f"Planning engineer's brief: trust in the initial plan {tb.plan_trust:.0%}"
-                              f"{' (it votes in the ensemble)' if tb.plan_trust >= 0.5 else ' (it does not vote)'}; "
+                              f"{' (it votes in the ensemble)' if tb.plan_trust >= PLAN_VOTE_TRUST else ' (it does not vote)'}; "
                               f"budget {tb.engine.budget}{' decided by the planner' if self.autonomous else ''}. "
                               f"Start with: {', '.join(decision.get('priorities') or []) or 'your own choice'}. "
                               f"{decision.get('strategy', '')}")

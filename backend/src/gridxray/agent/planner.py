@@ -31,7 +31,10 @@ medium-voltage network (the initial plan, if any) against what can be observed f
 The plan may be current, old (the network changed since it was drawn) or wrong. Its date and today's date are given.
 Free checks are provided: how many drawn connections fit the city geography (sections join blocks at most two
 streets apart), the voltage profile (a child should not read higher than its parent beyond noise) and the 24 h
-meter correlations. Weigh them with the plan's age.
+meter correlations. Weigh them with the plan's age, and with how reliable each check is: geography and the voltage
+profile catch only gross drawing errors; the 24 h correlation tree is itself only about half right on networks with
+several feeders, so low agreement with it is weak evidence against a plan. Even an old plan is usually right on most
+connections that did not change; trust it moderately unless several checks fail together.
 Return ONLY JSON:
 {"trust_in_plan": 0..1, "budget": <integer experiments the investigation needs, 3..40>,
  "priorities": ["<node names to test first, up to 8>"], "strategy": "<two sentences for the lead investigator>",
