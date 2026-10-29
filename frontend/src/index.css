@@ -729,3 +729,16 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .plan-pick__date input { width: 150px; min-width: 0; }
 .ws-panel select { width: 150px; max-width: 55%; min-width: 0; flex: 0 1 auto; text-overflow: ellipsis; }
 .ws-panel label.row > span { min-width: 0; flex: 1 1 auto; }
+
+.plan-list { font-size: .82rem; }
+.plan-list summary { cursor: pointer; }
+.plan-list ul { list-style: none; margin: 6px 0; padding: 0; display: grid; gap: 2px; max-height: 180px; overflow: auto; }
+.plan-list li { display: flex; gap: 6px; }
+.plan-list li.is-ok span { color: #17a673; }
+.plan-list li.is-bad { color: #b03030; font-weight: 600; }
+.plan-list li.is-missing { color: #9a5d00; }
+.plan-list__bad { color: #b03030; }
+.plan-list__ok { color: #17a673; }
+.plan-wrong-tag { display: grid; gap: 1px; white-space: nowrap; pointer-events: none; padding: 4px 9px; border-radius: 8px;
+  background: #b03030; color: #fff; font: 600 11.5px/1.25 var(--font, system-ui); box-shadow: 0 3px 10px rgba(0,0,0,.25); }
+.plan-wrong-tag span { font-weight: 500; opacity: .9; }

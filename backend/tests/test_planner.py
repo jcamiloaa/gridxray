@@ -41,3 +41,17 @@ def test_autonomous_investigation_lets_the_planner_choose_the_budget():
     assert review["plan"]["kind"] == "old" and review["plan"]["missing"]
     assert inv.run.toolbox.plan_trust == 0.8  # trusted: the drawing votes in the ensemble
     assert "plan" in {m for v in inv.run.toolbox.ensemble().votes.values() for ms in v.values() for m in ms}
+
+
+def test_wrong_and_old_plans_always_differ_even_on_tiny_networks():
+    from gridxray.lab.custom import Design, build_custom
+
+    tiny = Design(name="t", substation_row=0, nodes=[
+        {"key": "a", "name": "SS-A", "cell": (0, 0)}, {"key": "b", "name": "SS-B", "cell": (1, 0)},
+        {"key": "c", "name": "SS-C", "cell": (0, 1)}, {"key": "d", "name": "SS-D", "cell": (1, 1)}],
+        lines=[{"a": "S", "b": "a"}, {"a": "a", "b": "b"}, {"a": "a", "b": "c"}, {"a": "c", "b": "d"}])
+    for seed in range(5):
+        s = build_custom(tiny, seed)
+        for kind in ("errors", "old"):
+            acc = plan_accuracy(s, make_plan(s, kind, today=TODAY))
+            assert acc["correct"] < acc["total"]  # a plan "with errors" is never accidentally right

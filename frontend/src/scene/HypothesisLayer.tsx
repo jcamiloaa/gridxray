@@ -107,9 +107,17 @@ export function HypothesisLayer({ overlay, pos }: { overlay: Overlay; pos: Map<n
         </>
       )}
       <SignalLayer overlay={overlay} pos={pos} />
-      {overlay.plan?.map(([c, p]) => pos.has(c) && pos.has(p) && ( // the initial plan, as drawn by the utility
-        <Line key={`plan${c}-${p}`} points={route(pos.get(p)!, pos.get(c)!).map((q) => [q[0], 1.2, q[1]] as [number, number, number])}
-          color="#7c4ddb" lineWidth={2.2} dashed dashSize={0.25} gapSize={0.2} transparent opacity={0.85} />
+      {overlay.plan?.map(({ child: c, parent: p, real, labels }) => pos.has(c) && pos.has(p) && ( // the initial plan, as drawn
+        <group key={`plan${c}-${p}`}>
+          <Line points={route(pos.get(p)!, pos.get(c)!).map((q) => [q[0], real !== undefined ? 1.9 : 1.2, q[1]] as [number, number, number])}
+            color={real !== undefined ? '#d64545' : '#7c4ddb'} lineWidth={real !== undefined ? 3.4 : 2.2} dashed dashSize={0.25} gapSize={0.2}
+            transparent opacity={0.9} />
+          {real !== undefined && labels && (
+            <Html position={[(pos.get(c)![0] + pos.get(p)![0]) / 2, 2.6, (pos.get(c)![1] + pos.get(p)![1]) / 2]} center zIndexRange={[5, 0]}>
+              <div className="plan-wrong-tag"><b>✗ {labels.plan}</b><span>{labels.real}</span></div>
+            </Html>
+          )}
+        </group>
       ))}
       {overlay.incidents && <IncidentLayer incidents={overlay.incidents} pos={pos} />}
       {overlay.crew && <CrewLayer key={overlay.crew.visit} crew={overlay.crew} pos={pos} />}

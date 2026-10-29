@@ -259,13 +259,25 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
 
       if (planRef.current) { // the utility's initial plan, dashed purple
         ctx.setLineDash([5, 4]); ctx.strokeStyle = 'rgba(124, 77, 219, .85)'; ctx.lineWidth = 2
-        for (const [c2, p2] of planRef.current) {
+        for (const { child: c2, parent: p2, real, labels } of planRef.current) {
           const a = scene.pos.get(p2)
           const b2 = scene.pos.get(c2)
           if (!a || !b2) continue
+          const bad = real !== undefined
+          ctx.strokeStyle = bad ? 'rgba(214, 69, 69, .95)' : 'rgba(124, 77, 219, .85)'; ctx.lineWidth = bad ? 3.4 : 2
           ctx.beginPath()
-          route(a, b2).forEach(([x, z], i) => { const [px, py] = project([x, 1.2, z]); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py) })
+          route(a, b2).forEach(([x, z], i) => { const [px, py] = project([x, bad ? 1.9 : 1.2, z]); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py) })
           ctx.stroke()
+          if (bad && labels) { // where the drawing is wrong: what it says and what is real
+            const [lx5, ly5] = project([(a[0] + b2[0]) / 2, 2.6, (a[1] + b2[1]) / 2])
+            ctx.setLineDash([])
+            ctx.font = '700 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'
+            const txt = `✗ ${labels.plan} · ${labels.real}`
+            const w5 = ctx.measureText(txt).width + 16
+            ctx.fillStyle = '#b03030'; ctx.beginPath(); ctx.roundRect(lx5 - w5 / 2, ly5 - 10, w5, 20, 10); ctx.fill()
+            ctx.fillStyle = '#fff'; ctx.fillText(txt, lx5, ly5 + 4)
+            ctx.setLineDash([5, 4])
+          }
         }
         ctx.setLineDash([])
       }

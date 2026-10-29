@@ -17,6 +17,7 @@ import { SceneView } from '../scene/SceneView'
 import { fromObservable, fromTruth, type DiffKind, type Overlay } from '../scene/model'
 import { voltageColor, voltageLabel } from '../scene/palette'
 import { useInvestigation } from './useInvestigation'
+import { PlanList } from '../components/PlanList'
 
 type CompareView = 'ai' | 'diff' | 'real'
 
@@ -129,7 +130,25 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
 
   /** What the scene draws on top of the network: live hypothesis, or after comparing one of three views. */
   const sceneOverlay = useMemo<Overlay | undefined>(() => {
-    const plan = showPlan && planInfo ? planInfo.edges : undefined
+    // with the real network revealed, a drawn connection that does not exist is marked with the real parent
+    const realParent = new Map<number, number>()
+    if (revealed && truth) {
+      const known = new Set<number>(scenario?.substations.map((x) => x.id))
+      const adj = new Map<number, number[]>()
+      for (const [a, b] of truth.edges) { adj.set(a, [...(adj.get(a) ?? []), b]); adj.set(b, [...(adj.get(b) ?? []), a]) }
+      const queue = [...known]
+      while (queue.length) {
+        const cur = queue.shift()!
+        for (const nx of adj.get(cur) ?? []) if (!known.has(nx)) { known.add(nx); realParent.set(nx, cur); queue.push(nx) }
+      }
+    }
+    const nameOf = (id: number) => scenario?.nodes.find((n) => n.id === id)?.name ?? scenario?.substations.find((x) => x.id === id)?.name ?? String(id)
+    const plan = showPlan && planInfo ? planInfo.edges.map(([c, p]) => {
+      const real = realParent.get(c)
+      return real !== undefined && real !== p
+        ? { child: c, parent: p, real, labels: { plan: `${nameOf(c)} · ${t('plan')} ${nameOf(p)}`, real: `${t('real')} ${nameOf(real)}` } }
+        : { child: c, parent: p }
+    }) : undefined
     const o = plan ? { ...(run.overlay ?? { edges: [] }), plan } : run.overlay
     if (!o || !run.compared) return o
     if (cmpView === 'real') return o.crew ? { edges: [], crew: o.crew } : undefined
@@ -137,7 +156,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
     const idByName = new Map(scenario?.nodes.map((n) => [n.name, n.id]))
     const notes = (run.comparison?.wrong ?? []).filter((r) => idByName.has(r.node)).map((r) => ({ node: idByName.get(r.node)!, ai: r.ai, real: r.real }))
     return { ...o, diff: { highlight: cmpFilter, notes, words: { ai: t('AI'), real: t('Real') } } }
-  }, [run.overlay, run.compared, run.comparison, cmpView, cmpFilter, scenario, t, showPlan, planInfo])
+  }, [run.overlay, run.compared, run.comparison, cmpView, cmpFilter, scenario, t, showPlan, planInfo, revealed, truth])
   const diffCounts = run.overlay && run.compared ? {
     correct: run.overlay.edges.filter((e) => e.status === 'correct').length,
     wrong: run.overlay.edges.filter((e) => e.status === 'wrong').length,
@@ -362,6 +381,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                     {t('Show the initial plan on the map')} ({planInfo.edges.length} {t('connections')}{planInfo.missing.length ? `, ${planInfo.missing.length} ${t('missing')}` : ''})
                   </label>
                 )}
+                {planInfo && <PlanList plan={planInfo} scenario={scenario} truth={revealed ? truth : null} />}
                 <button className="btn-primary btn-lg" onClick={() => run.start(budget, lang, planKind ?? 'none', planKind && planKind !== 'none' ? planDate || null : null)}
                   disabled={run.status === 'running' || !planKind}>
                   {run.status === 'running' ? t('Investigating…') : run.status === 'idle' ? t('Start investigation') : t('Run again')}

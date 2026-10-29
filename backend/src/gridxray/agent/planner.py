@@ -76,8 +76,9 @@ def true_parent(s: Scenario) -> dict[int, int]:
     return parent
 
 
-def _plausible_parent(s: Scenario, child: int, parent: dict[int, int], rng: np.random.Generator) -> int | None:
-    """A wrong but believable feeding node: within two blocks, and not below the child (no loops)."""
+def _plausible_parent(s: Scenario, child: int, parent: dict[int, int], rng: np.random.Generator,
+                      reach: int = 2) -> int | None:
+    """A wrong but believable feeding node: within `reach` blocks, and not below the child (no loops)."""
     below, frontier = {child}, [child]
     while frontier:
         cur = frontier.pop()
@@ -87,7 +88,7 @@ def _plausible_parent(s: Scenario, child: int, parent: dict[int, int], rng: np.r
                 frontier.append(c)
     here = s.location.get(child)
     options = [n for n in [*s.node_ids, *s.roots] if n not in below and n != parent.get(child) and here and s.location.get(n)
-               and abs(s.location[n][0] - here[0]) + abs(s.location[n][1] - here[1]) <= 2]
+               and abs(s.location[n][0] - here[0]) + abs(s.location[n][1] - here[1]) <= reach]
     return int(rng.choice(options)) if options else None
 
 
@@ -112,12 +113,21 @@ def make_plan(s: Scenario, kind: str, drawn_on: str | None = None, today: date |
         changed = 0.3
     else:
         changed = 0.0
-    for n in rng.permutation(nodes):
-        n = int(n)
-        if n in parent and rng.random() < changed:
-            alt = _plausible_parent(s, n, parent, rng)
-            if alt is not None:
-                parent[n] = alt
+    # a plan "with errors" or "old" always differs somewhere, even on a tiny network
+    want = max(1, round(changed * len(parent))) if changed else 0
+    done = 0
+    for reach in (2, 4, 99):  # prefer believable neighbours, widen only if none is left
+        for n in rng.permutation(nodes):
+            n = int(n)
+            if done >= want:
+                break
+            if n in parent and parent[n] == true_parent(s).get(n):
+                alt = _plausible_parent(s, n, parent, rng, reach)
+                if alt is not None:
+                    parent[n] = alt
+                    done += 1
+        if done >= want:
+            break
     return Plan(kind, drawn, parent, missing)
 
 
