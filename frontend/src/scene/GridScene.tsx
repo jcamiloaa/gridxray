@@ -1,5 +1,5 @@
 import { Bounds, Grid, OrbitControls, OrthographicCamera, useBounds } from '@react-three/drei'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber'
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import * as THREE from 'three'
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
@@ -232,6 +232,12 @@ export function GridScene({
   const [footprint, setFootprint] = useState<Vec2[] | null>(null)
   const onFootprint = useCallback((f: Vec2[]) => setFootprint(f), [])
   const [hovered, setHovered] = useState<number | null>(null)
+  // equipment under the mouse (substation, line run, tie, device): its floating label shows only then
+  const [hoverKey, setHoverKey] = useState<string | null>(null)
+  const hov = (key: string) => ({
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => { e.stopPropagation(); setHoverKey(key) },
+    onPointerOut: () => setHoverKey((k) => (k === key ? null : k)),
+  })
   const pushScreen = useRef<(m: ScreenMap) => void>(() => {})
   const onProject = useCallback((m: ScreenMap) => pushScreen.current(m), [])
 
@@ -325,28 +331,33 @@ export function GridScene({
       const a = calloutAnchor[c.target]
       if (a) pts.push({ key: `c${c.n}`, p: [a[0], a[1] + LIFT[c.target], a[2]] })
     }
-    if (showLabels) {
+    const pk = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`)
+    if (showLabels && hoverKey) { // every piece of equipment has its nameplate; the label is for hover
       for (const f of tags.feeders) {
+        if (hoverKey !== `s${f.root}` && hoverKey !== `e${pk(f.root, f.head)}`) continue
         const pts2 = route(pos.get(f.root)!, pos.get(f.head)!)
         const [x, z] = pts2.length === 3 ? pts2[1] : pos.get(f.head)!
         pts.push({ key: `f${f.tag}`, p: [x, 3.4, z] })
       }
       for (const t2 of tags.ties) {
+        if (hoverKey !== `t${t2.tag}`) continue
         const pts2 = route(pos.get(t2.a)!, pos.get(t2.b)!)
         const [x, z] = pts2.length === 3 ? pts2[1] : [(pts2[0][0] + pts2[1][0]) / 2, (pts2[0][1] + pts2[1][1]) / 2]
         pts.push({ key: `t${t2.tag}`, p: [x, 3.2, z] })
       }
       for (const s of model.substations) {
+        if (hoverKey !== `s${s.id}`) continue
         const [x, z] = pos.get(s.id)!
         pts.push({ key: `s${s.id}`, p: [x, 4.4, z] })
       }
       if (layers.equipment) for (const r of tags.reclosers) {
+        if (hoverKey !== `e${pk(r.a, r.b)}`) continue
         const pts2 = route(pos.get(r.a)!, pos.get(r.b)!)
         const [x, z] = pts2.length === 3 ? pts2[1] : [(pts2[0][0] + pts2[1][0]) / 2, (pts2[0][1] + pts2[1][1]) / 2]
         pts.push({ key: `r${r.tag}`, p: [x, 3.0, z] })
       }
       if (layers.devices) for (const d of model.devices) {
-        if (!pos.has(d.node)) continue
+        if (!pos.has(d.node) || hoverKey !== `d${d.id}`) continue
         const [x, z] = pos.get(d.node)!
         pts.push({ key: `d${d.id}`, p: d.kind === 'capacitor' ? [x + 1.15, 2.7, z - 1.15] : [x + 2.6, 1.2, z + 2.0] })
       }
@@ -358,7 +369,7 @@ export function GridScene({
       }
     }
     return pts
-  }, [callouts, calloutAnchor, showLabels, model, pos, hovered, selected, tags, layers])
+  }, [callouts, calloutAnchor, showLabels, model, pos, hovered, hoverKey, selected, tags, layers])
   const labelKeys = useMemo(() => new Set(labelPoints.map((l) => l.key)), [labelPoints])
 
   return (
@@ -388,19 +399,27 @@ export function GridScene({
             {cityOn ? <><GroundModel parts={city.parts} /><StreetLabels labels={city.streets} /></>
               : zones.map((z) => <Zone key={z.f} bounds={z.bounds} color={palette.zones[z.f % palette.zones.length]} />)}
             {model.substations.map((s) => (
-              <Substation key={s.id} position={pos.get(s.id)!} flow={flow} />
+              <group key={s.id} {...hov(`s${s.id}`)}><Substation position={pos.get(s.id)!} flow={flow} name={s.name} /></group>
             ))}
-            {model.edges.map((e) => e.kind === 'underground'
-              ? layers.underground && <UndergroundRun key={`${e.from}-${e.to}`} path={pathOf(e.from, e.to, true)} flow={flow}
-                  devices={devicesFor(e.from, e.to)} showDevices={layers.equipment} />
-              : layers.overhead && <CableRun key={`${e.from}-${e.to}`} path={pathOf(e.from, e.to)} flow={flow}
-                  devices={devicesFor(e.from, e.to)} showDevices={layers.equipment} />)}
+            {model.edges.map((e) => (
+              <group key={`${e.from}-${e.to}`} {...hov(`e${e.from < e.to ? `${e.from}-${e.to}` : `${e.to}-${e.from}`}`)}>
+                {e.kind === 'underground'
+                  ? layers.underground && <UndergroundRun path={pathOf(e.from, e.to, true)} flow={flow}
+                      devices={devicesFor(e.from, e.to)} showDevices={layers.equipment} />
+                  : layers.overhead && <CableRun path={pathOf(e.from, e.to)} flow={flow}
+                      devices={devicesFor(e.from, e.to)} showDevices={layers.equipment} />}
+              </group>))}
             {model.ties.map((t) => (t.kind === 'underground' ? layers.underground : layers.overhead) && (
-              <TieSwitch key={`t${t.a}-${t.b}`} path={pathOf(t.a, t.b, t.kind === 'underground')} closed={t.closed} kind={t.kind} />
+              <group key={`t${t.a}-${t.b}`} {...hov(`t${tags.ties.find((x) => x.a === t.a && x.b === t.b)?.tag ?? ''}`)}>
+                <TieSwitch path={pathOf(t.a, t.b, t.kind === 'underground')} closed={t.closed} kind={t.kind} />
+              </group>
             ))}
-            {layers.devices && model.devices.map((d) => pos.has(d.node) && (d.kind === 'capacitor'
-              ? <CapacitorBank key={d.id} position={pos.get(d.node)!} />
-              : <SolarFarm key={d.id} position={pos.get(d.node)!} width={PX - KOFF - 1.6} depth={PZ - KOFF - 1.5} />))}
+            {layers.devices && model.devices.map((d) => pos.has(d.node) && (
+              <group key={d.id} {...hov(`d${d.id}`)}>
+                {d.kind === 'capacitor'
+                  ? <CapacitorBank position={pos.get(d.node)!} name={tags.devices.get(d.id)} />
+                  : <SolarFarm position={pos.get(d.node)!} width={PX - KOFF - 1.6} depth={PZ - KOFF - 1.5} name={tags.devices.get(d.id)} />}
+              </group>))}
             {model.nodes.map((n) => (
               <Kiosk key={n.id} name={n.name} position={pos.get(n.id)!} mount={n.mount} metered={n.metered} vm={n.vm} selected={selected === n.id}
                 onHover={(on) => setHovered((h) => (on ? n.id : h === n.id ? null : h))}

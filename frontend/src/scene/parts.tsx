@@ -51,7 +51,7 @@ function FlowSpan({ a, b, speed = 0.7 }: { a: V3; b: V3; speed?: number }) {
 /* ---------- equipment ---------- */
 
 /** HV/MV substation with the transmission tower that feeds it. Feeders leave along +x. */
-export function Substation({ position, flow }: { position: [number, number]; flow: boolean }) {
+export function Substation({ position, flow, name }: { position: [number, number]; flow: boolean; name?: string }) {
   const [x, z] = position
   const tower = model('tower')
   const gantry: V3[] = [-0.8, 0, 0.8].map((dz) => [x - 2.9, 2.95, z + dz] as V3)
@@ -60,6 +60,7 @@ export function Substation({ position, flow }: { position: [number, number]; flo
   return (
     <group>
       <Model parts={model('substation')} position={[x, 0, z]} />
+      {name && <Nameplate name={name} position={[x + 1.2, 0.85, z + 2.78]} size={[1.9, 0.5]} posts />}
       <Model parts={tower} position={[x - TOWER_OFFSET, 0, z]} />
       {/* line from beyond the scene to the tower, then down to the gantry */}
       {towerPts.map((p, i) => (
@@ -103,7 +104,8 @@ function plateTexture(name: string): THREE.CanvasTexture {
     g.fillStyle = '#9aa5b1'; g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill()
   }
   g.fillStyle = '#1f2a37'
-  g.font = '800 58px Inter, system-ui, sans-serif'
+  let px = 58 // shrink long tags to fit the plate
+  do g.font = `800 ${px--}px Inter, system-ui, sans-serif`; while (g.measureText(name).width > 280 && px > 20)
   g.textAlign = 'center'
   g.textBaseline = 'middle'
   g.fillText(name, 160, 51)
@@ -114,16 +116,17 @@ function plateTexture(name: string): THREE.CanvasTexture {
   return tex
 }
 
-/** The station's nameplate, as a utility would mount it: on the kiosk roof edge or on the pole. */
-function Nameplate({ name, mount }: { name: string; mount: 'kiosk' | 'pole' }) {
+/** An equipment nameplate, as a utility mounts it: plate with a dark rim, optionally on two posts. */
+export function Nameplate({ name, position, size, posts = false, rotationY = 0 }: {
+  name: string; position: V3; size: [number, number]; posts?: boolean; rotationY?: number
+}) {
   const map = useMemo(() => plateTexture(name), [name])
-  const [w, h] = mount === 'pole' ? [0.62, 0.19] : [1.2, 0.36]
-  const at: V3 = mount === 'pole' ? [0, 1.0, 0.1] : [0, 1.42, 0.5]
+  const [w, h] = size
   return (
-    <group position={at}>
-      {mount === 'kiosk' && [-0.45, 0.45].map((x) => (
-        <mesh key={x} position={[x, -0.16, -0.02]}>
-          <boxGeometry args={[0.04, 0.2, 0.04]} />
+    <group position={position} rotation={[0, rotationY, 0]}>
+      {posts && [-w * 0.38, w * 0.38].map((x) => (
+        <mesh key={x} position={[x, -position[1] / 2, -0.02]}>
+          <boxGeometry args={[0.04, position[1], 0.04]} />
           <meshStandardMaterial color="#5d6875" />
         </mesh>
       ))}
@@ -135,6 +138,21 @@ function Nameplate({ name, mount }: { name: string; mount: 'kiosk' | 'pole' }) {
         <planeGeometry args={[w, h]} />
         <meshStandardMaterial map={map} roughness={0.5} />
       </mesh>
+    </group>
+  )
+}
+
+/** Kiosk nameplate on two short brackets along the front roof edge. */
+function KioskPlate({ name }: { name: string }) {
+  return (
+    <group>
+      {[-0.45, 0.45].map((x) => (
+        <mesh key={x} position={[x, 1.26, 0.48]}>
+          <boxGeometry args={[0.04, 0.2, 0.04]} />
+          <meshStandardMaterial color="#5d6875" />
+        </mesh>
+      ))}
+      <Nameplate name={name} position={[0, 1.42, 0.5]} size={[1.2, 0.36]} />
     </group>
   )
 }
@@ -174,7 +192,9 @@ export function Kiosk({ position, mount = 'kiosk', metered, vm, selected, onHove
           <meshBasicMaterial color={palette.accent} transparent opacity={selected ? 1 : 0.5} />
         </mesh>
       )}
-      {name && <Nameplate name={name} mount={mount} />}
+      {name && (mount === 'pole'
+        ? <Nameplate name={name} position={[0, 1.0, 0.1]} size={[0.62, 0.19]} />
+        : <KioskPlate name={name} />)}
       {mount === 'pole' ? (
         <>
           <Model parts={model('poleTransformer')} position={[0, 0, 0]} />
@@ -365,14 +385,25 @@ export function UndergroundRun({ path, flow, open = false, devices = [], showDev
 }
 
 /** Pole-mounted capacitor bank next to the secondary substation it compensates. */
-export function CapacitorBank({ position }: { position: [number, number] }) {
-  return <Model parts={model('capacitorBank')} position={[position[0] + 1.15, 0, position[1] - 1.15]} rotationY={Math.PI / 4} />
+export function CapacitorBank({ position, name }: { position: [number, number]; name?: string }) {
+  const [x, z] = [position[0] + 1.15, position[1] - 1.15]
+  return (
+    <group>
+      <Model parts={model('capacitorBank')} position={[x, 0, z]} rotationY={Math.PI / 4} />
+      {name && <Nameplate name={name} position={[x, 1.0, z + 0.1]} size={[0.66, 0.2]} />}
+    </group>
+  )
 }
 
 /** Ground-mounted PV plant filling the block behind the secondary substation it connects to. */
-export function SolarFarm({ position, width, depth }: { position: [number, number]; width: number; depth: number }) {
+export function SolarFarm({ position, width, depth, name }: { position: [number, number]; width: number; depth: number; name?: string }) {
   const parts = useMemo(() => buildSolarArray(width, depth), [width, depth])
-  return <Model parts={parts} position={[position[0] + 1.0, 0.06, position[1] + 1.0]} />
+  return (
+    <group>
+      <Model parts={parts} position={[position[0] + 1.0, 0.06, position[1] + 1.0]} />
+      {name && <Nameplate name={name} position={[position[0] + 1.6, 0.55, position[1] + depth + 1.15]} size={[0.9, 0.27]} posts />}
+    </group>
+  )
 }
 
 /** Ground layer built from merged geometry (used for the city map). */
