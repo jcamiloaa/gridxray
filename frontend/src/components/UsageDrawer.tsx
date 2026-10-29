@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { money } from '../money'
 import { getUsage, type UsageReport } from '../api/client'
 import { LanguageToggle, useI18n } from '../i18n'
 import { MetaKeySettings } from './MetaKeySettings'
@@ -29,7 +30,7 @@ export function UsageDrawer({ onClose }: { onClose: () => void }) {
         <h3 style={{ fontSize: '1rem', marginTop: 8 }}>{t('Session usage')}</h3>
         <div className="stats">
           <div className="stat"><b>{u?.runs ?? '—'}</b><span>{t('Investigations')}</span></div>
-          <div className="stat"><b>{u ? `$${u.cost_usd.toFixed(3)}` : '—'}</b><span>{t('Total cost')}</span></div>
+          <div className="stat"><b>{u ? money(u.cost_usd) : '—'}</b><span>{t('Total cost')}</span></div>
           <div className="stat"><b>{u ? `${Math.round(u.tokens / 1000)}k` : '—'}</b><span>{t('Tokens')}</span></div>
           <div className="stat"><b>{u ? Object.values(u.by_model).reduce((s, m) => s + m.calls, 0) : '—'}</b><span>{t('Calls')}</span></div>
         </div>
@@ -38,7 +39,11 @@ export function UsageDrawer({ onClose }: { onClose: () => void }) {
             <thead><tr><th>{t('Model')}</th><th>{t('Input')}</th><th>{t('Output')}</th><th>{t('Reasoning')}</th><th>{t('Cost')}</th></tr></thead>
             <tbody>
               {Object.entries(u.by_model).map(([m, v]) => (
-                <tr key={m}><td>{m}</td><td>{fmt(v.input)}</td><td>{fmt(v.output)}</td><td>{fmt(v.reasoning)}</td><td>${v.cost_usd.toFixed(3)}</td></tr>
+                <tr key={m}><td>{m}</td>
+                  {u.prices[m]?.per_image
+                    ? <td colSpan={3}>{fmt(v.images ?? 0)} {t('images')} × ${u.prices[m].per_image}</td>
+                    : <><td>{fmt(v.input)}</td><td>{fmt(v.output)}</td><td>{fmt(v.reasoning)}</td></>}
+                  <td>{money(v.cost_usd)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -50,6 +55,16 @@ export function UsageDrawer({ onClose }: { onClose: () => void }) {
             <tbody>
               {[u.models.spark, u.models.wonder].map((m) => u.prices[m] && (
                 <tr key={m}><td>{m}</td><td>${u.prices[m].input}</td><td>${u.prices[m].cached_input}</td><td>${u.prices[m].output}</td></tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {u && (
+          <table className="usage-table">
+            <thead><tr><th>{t('Model')}</th><th colSpan={3}>{t('Price per image')}</th></tr></thead>
+            <tbody>
+              {Object.entries(u.prices).filter(([, p]) => p.per_image).map(([m, p]) => (
+                <tr key={m}><td>{m}</td><td colSpan={3}>${p.per_image}</td></tr>
               ))}
             </tbody>
           </table>

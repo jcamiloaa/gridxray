@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { money } from '../money'
 import { createScenario, getActiveInvestigation, getTruth, sourceOf, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
 import { Brand } from '../components/Brand'
 import { Icon } from '../components/Icon'
@@ -251,7 +252,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                     </table>
                     <small className="muted">{t('Scored against the real network by an independent checker with no AI involved.')} {run.score.gridxray.wrong_edges} {t('wrong')}
                       ({run.score.gridxray.wrong_and_flagged} {t('flagged as uncertain')}) · {run.score.steps} {t('steps')} · {run.score.reviews} {t('Wonder reviews')} · {Math.round(run.score.seconds ?? 0)} s
-                      {run.score.usage ? ` · ${Math.round(run.score.usage.tokens / 1000)}k tokens · $${run.score.usage.cost_usd.toFixed(3)}` : ''}</small>
+                      {run.score.usage ? ` · ${Math.round(run.score.usage.tokens / 1000)}k tokens · ${money(run.score.usage.cost_usd)}` : ''}</small>
                     {run.runId && <a className="btn-link" href={`/api/investigations/${run.runId}/report?lang=${lang}`} target="_blank" rel="noreferrer">{t('Download report')}</a>}
                     <button onClick={() => setDrawer('evidence')} className="btn-ghost">{t('Evidence')}</button>
                     <button onClick={run.compare} disabled={run.compared}>{run.compared ? t('Compared with the real network') : t('Reveal & compare')}</button>

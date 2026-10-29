@@ -158,7 +158,7 @@ const ES: Record<string, string> = {
   'Muse Image is drawing the site…': 'Muse Image está generando la foto del sitio…', Switch: 'Interruptor', open: 'abierto', closed: 'cerrado', unknown: 'no se ve',
   pole: 'poste', kiosk: 'kiosco', overhead: 'aérea', underground: 'subterránea', confidence: 'confianza', switch: 'interruptor', transformer: 'transformador',
   insulator: 'aislador', tag: 'placa', cable: 'cable', 'kiosk door': 'puerta del kiosco',
-  'Record outdated': 'Registro desactualizado', 'Crew driving to {node}': 'Cuadrilla en camino a {node}',
+  'Record outdated': 'Registro desactualizado', images: 'imágenes', 'Price per image': 'Precio por imagen', 'Crew driving to {node}': 'Cuadrilla en camino a {node}',
   'Taking the photo · Muse Image': 'Tomando la foto · Muse Image', 'Segmenting the equipment · SAM 3.1': 'Segmentando los equipos · SAM 3.1',
   'Reading the switch · Muse Spark': 'Leyendo el interruptor · Muse Spark', 'Field visit done': 'Visita de campo terminada', 'matches the records': 'coincide con los registros', 'photo unclear': 'la foto no es concluyente',
   'no switch on record here': 'no hay interruptor registrado aquí', 'How is this photo made?': '¿Cómo se hace esta foto?',

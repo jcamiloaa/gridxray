@@ -165,14 +165,14 @@ export interface RunSummary {
   cost_usd: number
 }
 
-export interface ModelUsage { input: number; cached: number; output: number; reasoning: number; calls: number; cost_usd: number }
+export interface ModelUsage { input: number; cached: number; output: number; reasoning: number; calls: number; cost_usd: number; images?: number }
 
 export interface UsageReport {
   runs: number
   tokens: number
   cost_usd: number
   by_model: Record<string, ModelUsage>
-  prices: Record<string, { input: number; cached_input: number; output: number }>
+  prices: Record<string, { input: number; cached_input: number; output: number; per_image?: number }>
   models: { spark: string; wonder: string }
 }
 

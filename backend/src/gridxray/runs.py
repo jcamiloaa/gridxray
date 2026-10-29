@@ -214,6 +214,7 @@ def usage_totals(rows: list[dict]) -> dict:
     for r in rows:
         for m, u in ((r.get("usage") or {}).get("by_model") or {}).items():
             acc = by_model.setdefault(m, {"input": 0, "cached": 0, "output": 0, "reasoning": 0, "calls": 0})
-            for k in acc:
-                acc[k] += u.get(k, 0)
+            for k in (*acc, "images"):  # per-image models (Muse Image, SAM 3.1) bill by image, not by token
+                if k in u:
+                    acc[k] = acc.get(k, 0) + u[k]
     return summarize(by_model)

@@ -1,4 +1,5 @@
 import type { RunEvent } from '../api/client'
+import { money } from '../money'
 import { useI18n } from '../i18n'
 
 /** Visual progress of a live investigation: budget slots, reconstruction curve, confidence and cost. */
@@ -65,7 +66,7 @@ export function RunProgress({ events, total }: { events: RunEvent[]; total: numb
       <div className="run-viz__stats">
         <div><b>{conf !== undefined ? `${Math.round(conf * 100)}%` : '—'}</b><span>{t('Latest confidence')}</span></div>
         <div><b>{usage?.tokens ? `${Math.round(usage.tokens / 1000)}k` : '—'}</b><span>{t('Tokens')}</span></div>
-        <div><b>{usage?.cost_usd !== undefined ? `$${usage.cost_usd.toFixed(3)}` : '—'}</b><span>{t('Cost')}</span></div>
+        <div><b>{usage?.cost_usd !== undefined ? money(usage.cost_usd) : '—'}</b><span>{t('Cost')}</span></div>
       </div>
     </div>
   )
