@@ -201,21 +201,42 @@ export function sourceOf(s: string): ScenarioSource {
 }
 
 /** Subscribe to a run's Server-Sent Events. Returns a function that closes the stream. */
+/**
+ * Subscribe to a run's Server-Sent Events. Returns a function that closes the stream.
+ * A dropped connection (network blip, sleeping tab, server restart) reconnects by itself and resumes after
+ * the last event received; onError is called only after repeated failures.
+ */
 export function streamInvestigation(id: string, onEvent: (e: RunEvent) => void, onError: () => void): () => void {
-  const es = new EventSource(`/api/investigations/${id}/events`)
+  let last = 0 // position of the last event received (the server's SSE id)
+  let failures = 0
+  let finished = false
+  let es: EventSource | null = null
+  let retry: number | undefined
   const handler = (msg: MessageEvent) => {
     if (typeof msg.data !== 'string') return // the native connection 'error' event carries no data
+    const n = Number(msg.lastEventId)
+    if (n && n <= last) return // already seen (replayed after a reconnect)
+    last = n || last + 1
+    failures = 0
     const e = JSON.parse(msg.data) as RunEvent
     onEvent(e)
-    if (e.kind === 'done') es.close()
+    if (e.kind === 'done') { finished = true; es?.close() }
   }
-  for (const k of EVENT_KINDS) es.addEventListener(k, handler as EventListener)
-  es.onerror = () => {
-    if (es.readyState === EventSource.CLOSED) return
-    es.close()
-    onError()
+  const open = () => {
+    es = new EventSource(`/api/investigations/${id}/events${last ? `?since=${last}` : ''}`)
+    for (const k of EVENT_KINDS) es.addEventListener(k, handler as EventListener)
+    es.onopen = () => { failures = 0 }
+    es.onerror = () => {
+      if (finished || !es) return
+      if (es.readyState === EventSource.CONNECTING) return // the browser retries by itself, sending Last-Event-ID
+      es.close()
+      failures += 1
+      if (failures > 8) { onError(); return }
+      retry = window.setTimeout(open, Math.min(10000, 800 * failures))
+    }
   }
-  return () => es.close()
+  open()
+  return () => { finished = true; window.clearTimeout(retry); es?.close() }
 }
 
 /* ---------- networks designed in the editor ---------- */

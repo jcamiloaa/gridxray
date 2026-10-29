@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import Annotated
 
-from fastapi import APIRouter, Cookie, HTTPException, status
+from fastapi import APIRouter, Cookie, Header, HTTPException, status
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 from sse_starlette.sse import EventSourceResponse
@@ -213,24 +213,27 @@ def report(run_id: str, user: CurrentUser, db: DbSession, session: Session = Non
 
 
 @router.get("/{run_id}/events")
-async def events(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) -> EventSourceResponse:
+async def events(run_id: str, user: CurrentUser, db: DbSession, session: Session = None, since: int = 0,
+                 last_event_id: Annotated[str | None, Header()] = None) -> EventSourceResponse:
+    """Every event carries its position as the SSE id, so a dropped connection resumes where it left off."""
     row = _owned(db, run_id, user, session)
+    start = max(since, int(last_event_id) if last_event_id and last_event_id.isdigit() else 0)
     live = manager.runs.get(run_id)
     if live is None or live.status != "running":
         stored = list(live.since(0) if live else row.events)
 
         async def replay():
-            for e in stored:
-                yield {"event": e["kind"], "data": json.dumps(e, default=str)}
+            for i, e in enumerate(stored[start:], start + 1):
+                yield {"id": str(i), "event": e["kind"], "data": json.dumps(e, default=str)}
 
         return EventSourceResponse(replay())
 
     async def stream():
-        sent = 0
+        sent = start
         while True:
             for e in live.since(sent):
                 sent += 1
-                yield {"event": e["kind"], "data": json.dumps(e, default=str)}
+                yield {"id": str(sent), "event": e["kind"], "data": json.dumps(e, default=str)}
                 if e["kind"] == "done":
                     return
             await asyncio.sleep(0.25)

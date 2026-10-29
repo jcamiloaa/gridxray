@@ -159,6 +159,7 @@ const ES: Record<string, string> = {
   pole: 'poste', kiosk: 'kiosco', overhead: 'aérea', underground: 'subterránea', confidence: 'confianza', switch: 'interruptor', transformer: 'transformador',
   insulator: 'aislador', tag: 'placa', cable: 'cable', 'kiosk door': 'puerta del kiosco',
   'Record outdated': 'Registro desactualizado',
+  "Fault seen: the smart meter is damaged": "Falla vista: el medidor inteligente está dañado",
   "You": "Tú",
   "operator": "operador",
   "lead investigator": "investigador principal",

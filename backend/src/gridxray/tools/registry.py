@@ -199,6 +199,11 @@ class ToolBox:
         self.meta_tree = None
         self.obs = self.engine.s.observable()
         stale = sum(1 for r in self.engine.history if r.accepted and r.epoch < self.engine.epoch)
+        # where a crew should look: meters that went silent, then switch sites where the voltage moved most
+        moved = list(change["shifts_pu"])[:4]
+        suspects = [self.name[n] for n in change["offline"]]
+        suspects += [self.name[site] for sw, site in self.switch_site.items() if site in moved and self.name[site] not in suspects]
+        suspects += [self.name[n] for n in moved[:2] if self.name[n] not in suspects]
         return {
             "message": ("FIELD CHANGE DETECTED: the meter baseline moved since the previous experiment although nothing "
                         "was operated by you. Someone changed the network in the field (a switch operated, a meter went "
@@ -207,6 +212,9 @@ class ToolBox:
             "largest_shifts_pu": {self.name[n]: v for n, v in change["shifts_pu"].items()},
             "meters_offline": [self.name[n] for n in change["offline"]],
             "experiments_set_aside": stale,
+            "suspect_sites": suspects[:4],
+            "advice": "If a picture would settle what changed (a switch operated, a damaged meter), send a field crew "
+                      "to a suspect site with dispatch_crew before re-testing.",
         }
 
     # ------------------------------------------------------------ tools

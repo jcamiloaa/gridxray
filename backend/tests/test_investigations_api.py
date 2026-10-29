@@ -62,6 +62,10 @@ def test_run_streams_events_and_scores(client):
         text = "".join(s.iter_text())
     events = [json.loads(line[5:]) for line in text.splitlines() if line.startswith("data:")]
     assert events[-1]["kind"] == "done"
+    # a dropped connection resumes after the last event it received, without repeats
+    with client.stream("GET", f"/investigations/{run_id}/events", params={"since": len(events) - 2}) as s:
+        tail = [json.loads(line[5:]) for line in "".join(s.iter_text()).splitlines() if line.startswith("data:")]
+    assert [e["kind"] for e in tail] == [e["kind"] for e in events[-2:]]
 
 
 def test_list_usage_and_resume_flow(client):

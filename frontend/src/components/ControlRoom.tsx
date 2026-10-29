@@ -28,7 +28,22 @@ const DESKS: Record<Actor, { x: number; label: string; sub: string; color: strin
 const W = 600
 const DESK_Y = 62
 
-const clip = (s: string, n = 150) => (s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s)
+/** Markdown from the models as plain text: bubbles are one short paragraph. */
+const plain = (s: string) => s
+  .replace(/```[\s\S]*?```/g, ' ')
+  .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1') // links keep their text
+  .replace(/(\*\*|\*|`)(.+?)\1/g, '$2') // bold, italics, code (underscores stay: tool and node names use them)
+  .replace(/^\s{0,3}(#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s?)/gm, '') // headings, bullets, quotes
+  .replace(/[*`]+/g, '')
+  .replace(/\s*\n+\s*/g, ' · ')
+  .replace(/\s{2,}/g, ' ')
+  .replace(/^( · )+|( · )+$/g, '')
+  .trim()
+
+const clip = (raw: string, n = 150) => {
+  const s = plain(raw)
+  return s.length > n ? `${s.slice(0, n).replace(/\s+\S*$/, '')}…` : s
+}
 
 /** Turns the investigation's events into what each agent says and does. */
 function useSteps(events: RunEvent[]): Step[] {
@@ -104,7 +119,7 @@ function useSteps(events: RunEvent[]): Step[] {
           add({ actor: 'field', icon: 'scan', text: t('room.sam').split('{n}').join(String((e.objects as unknown[] | undefined)?.length ?? 0)) })
           break
         case 'field_reading':
-          add({ actor: 'field', to: 'spark', icon: 'eye', text: `${t('room.reading')}: ${t(String(e.record_check ?? ''))}`, logic: t('room.reading.logic') })
+          add({ actor: 'field', to: 'spark', icon: 'eye', text: e.fault ? t('Fault seen: the smart meter is damaged') : `${t('room.reading')}: ${t(String(e.record_check ?? ''))}`, logic: t('room.reading.logic') })
           break
         case 'candidate': {
           const edges = (e.edges ?? []) as { basis: string }[]

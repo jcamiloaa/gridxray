@@ -316,6 +316,7 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
         }
       }
 
+      const stackAt = new Map<number, number>()
       for (const { inc, t0, text } of incidents.current.values()) {
         const at = scene.pos.get(inc.node)
         if (!at) continue
@@ -347,7 +348,10 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           ctx.beginPath(); ctx.arc(rx, ry, Math.max(3, s * 0.18), 0, 7)
           ctx.fillStyle = Math.sin(now / 160) > 0 ? '#ff2a2a' : '#6b1d1d'; ctx.fill()
         }
-        const [lx3, ly3] = project([at[0], 4.6, at[1]])
+        const k3 = stackAt.get(inc.node) ?? 0
+        stackAt.set(inc.node, k3 + 1)
+        const [lx3, ly0] = project([at[0], 3.6, at[1]])
+        const ly3 = ly0 - 26 - k3 * 28 // above the crew's tag and any other incident here
         ctx.font = '700 12px Inter, system-ui, sans-serif'
         ctx.textAlign = 'center'
         const w3 = ctx.measureText(text).width + 30
@@ -397,7 +401,8 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           label = cr.texts[cr.c.stage]
           color = { photo: '#f26b1d', segment: '#0f9fbf', read: '#7c4ddb', done: cr.c.outdated ? '#d64545' : '#17a673' }[cr.c.stage]
         }
-        const [lx2, ly2] = done ? project([site[0], 3.8, site[1] - 0.6]) : project([tx, 1.6, tz])
+        const [lx2, ly2b] = done ? project([site[0], 3.6, site[1] - 0.6]) : project([tx, 1.6, tz])
+        const ly2 = ly2b + (done ? 16 : 0) // below an incident's tag at the same site
         ctx.font = '600 12px Inter, system-ui, sans-serif'
         ctx.textAlign = 'center'
         const tw = ctx.measureText(label).width + 18

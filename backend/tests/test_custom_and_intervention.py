@@ -147,3 +147,18 @@ def test_small_network_change_is_noticed():
     eng.perturb_load(b, 1500)
     assert apply_intervention(s, [0, 1], []) is None  # close the tie, open the sectionalizer: SS-B now fed via SS-C
     assert eng.perturb_load(b, 1500).change is not None
+
+
+def test_crew_sees_a_failed_meter_and_detection_points_to_it():
+    from gridxray.field import photo_prompt, site_facts
+    from gridxray.tools import ToolBox
+
+    s = generate_scenario(Complexity.EASY, 1)
+    tb = ToolBox(s, budget=6)
+    node = s.metered[3]
+    tb.t_run_experiment("perturb_load", node=s.names[s.node_ids[0]], delta_kw=900)
+    assert apply_intervention(s, [], [node]) is None
+    out = tb.t_run_experiment("perturb_load", node=s.names[s.node_ids[0]], delta_kw=900)
+    assert s.names[node] in out["field_change"]["suspect_sites"]  # the crew is pointed at the silent meter
+    facts = site_facts(s, node)
+    assert facts.meter_offline and "smart-meter box is clearly damaged" in photo_prompt(facts)

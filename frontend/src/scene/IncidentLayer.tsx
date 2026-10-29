@@ -15,7 +15,7 @@ const FLASH_SECONDS = 3.5 // electric arc and sparks right after the event
  * What you did in the field, made visible: a switching operation arcs and throws sparks at the switch;
  * a meter that goes offline sparks, then keeps smoking with a red fault light.
  */
-function IncidentFx({ incident, at }: { incident: Incident; at: Vec2 }) {
+function IncidentFx({ incident, at, stack }: { incident: Incident; at: Vec2; stack: number }) {
   const { t } = useI18n()
   const t0 = useRef<number | null>(null)
   const puffs = useRef<(THREE.Mesh | null)[]>([])
@@ -103,7 +103,8 @@ function IncidentFx({ incident, at }: { incident: Incident; at: Vec2 }) {
         </mesh>
       )}
       <Html position={[0, 3.1, 0]} center zIndexRange={[6, 0]}>
-        <div className={`incident-tag incident-tag--${incident.kind}`}>
+        {/* lifted in screen pixels so it never sits on the crew's tag or another incident at the same site */}
+        <div className={`incident-tag incident-tag--${incident.kind}`} style={{ translate: `0 ${-30 - stack * 30}px` }}>
           <span>{meter ? '🔥' : '⚡'}</span>
           {meter
             ? t('Meter {node} offline').split('{node}').join(incident.label)
@@ -117,7 +118,10 @@ function IncidentFx({ incident, at }: { incident: Incident; at: Vec2 }) {
 export function IncidentLayer({ incidents, pos }: { incidents: Incident[]; pos: Map<number, Vec2> }) {
   return (
     <group>
-      {incidents.map((inc) => pos.has(inc.node) && <IncidentFx key={inc.id} incident={inc} at={pos.get(inc.node)!} />)}
+      {incidents.map((inc, i) => pos.has(inc.node) && (
+        <IncidentFx key={inc.id} incident={inc} at={pos.get(inc.node)!}
+          stack={incidents.slice(0, i).filter((x) => x.node === inc.node).length} />
+      ))}
     </group>
   )
 }

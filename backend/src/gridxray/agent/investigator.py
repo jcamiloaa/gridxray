@@ -306,15 +306,17 @@ class Investigator:
                  "photo unclear" if seen_state not in ("open", "closed") or not sure else
                  "matches the records" if seen_state == documented else
                  f"RECORD OUTDATED: records say {documented}, the photo shows {seen_state}")
+        # a fault the crew can see (a burnt meter after a field failure); only a confident reading counts
+        fault = f"FAULT SEEN: the smart meter at {node} is damaged" if reading.get("meter_fault") is True and sure else None
         tb.engine.history.append(ExperimentRecord(len(tb.engine.history) + 1, {"type": "field_visit", "node": nid},
                                                   True, "field visit", 1))
-        tb.field_findings.append({"site": node, "reading": reading, "record_check": check})
+        tb.field_findings.append({"site": node, "reading": reading, "record_check": check, "fault": fault})
         self.emit("field_reading", visit=visit, node=node, reading=reading, switch_id=sid, documented=documented,
-                  record_check=check, seconds=round(time.perf_counter() - t, 1), budget_remaining=tb.engine.remaining)
+                  record_check=check, fault=fault, seconds=round(time.perf_counter() - t, 1), budget_remaining=tb.engine.remaining)
         counts: dict[str, int] = {}
         for o in objects:
             counts[o["label"]] = counts.get(o["label"], 0) + 1
-        return {"accepted": True, "site": node, "segmented": counts, "reading": reading, "record_check": check,
+        return {"accepted": True, "site": node, "segmented": counts, "reading": reading, "record_check": check, "fault": fault,
                 "budget_remaining": tb.engine.remaining}
 
     def wait_meta(self, timeout: float = META_WAIT_SECONDS) -> None:

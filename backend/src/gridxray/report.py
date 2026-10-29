@@ -268,8 +268,9 @@ def render(row, lang: str | None = None) -> str:
             ph = photos.get(r.get("visit"), {})
             rd = r.get("reading") or {}
             img = f"<img class='photo' src='media/{e(str(ph['media_id']))}' alt=''>" if ph.get("media_id") else ""
+            fault = f"<br><b class='bad'>🔥 {e(str(r['fault']))}</b>" if r.get("fault") else ""
             out.append(f"<div class='crew'>{img}<p><b>{e(str(r.get('node')))}</b> · {e(str(rd.get('switch_tag') or ''))} "
-                       f"{e(str(rd.get('switch_state') or ''))} · {e(str(r.get('record_check') or ''))}<br>"
+                       f"{e(str(rd.get('switch_state') or ''))} · {e(str(r.get('record_check') or ''))}{fault}<br>"
                        f"<span class='note'>{e(str(rd.get('notes') or ''))}</span></p></div>")
     out.append(f"<h2>{t['how']}</h2><p class='note'>{t['how_text']}</p>"
                + ("" if row.source.startswith("custom:") else

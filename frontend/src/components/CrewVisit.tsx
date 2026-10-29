@@ -85,10 +85,11 @@ export function CrewVisit({ events, runId }: { events: RunEvent[]; runId: string
       ) : <p className="muted">{t('Photo not stored for this run.')}</p>)}
       {!photo && stage === 'photo' && <div className="crew__placeholder">{t('Muse Image is drawing the site…')}</div>}
       {read && (
-        <div className={`crew__reading${outdated ? ' is-outdated' : ''}`}>
+        <div className={`crew__reading${outdated || read.fault ? ' is-outdated' : ''}`}>
           {reading.switch_present && <span className={`pill crew__state crew__state--${reading.switch_state}`}>{reading.switch_tag ?? t('Switch')}: {t(String(reading.switch_state))}</span>}
           <span>{reading.mount ? t(reading.mount) : ''}{reading.line ? ` · ${t(reading.line)}` : ''}{reading.confidence ? ` · ${t('confidence')} ${Math.round(reading.confidence * 100)}%` : ''}</span>
           <b className="crew__check">{outdated ? '⚠ ' : '✓ '}{t(check.startsWith('RECORD OUTDATED') ? 'Record outdated' : check)}{outdated ? `: ${check.split(': ')[1] ?? ''}` : ''}</b>
+          {read.fault ? <b className="crew__fault">🔥 {t('Fault seen: the smart meter is damaged')}</b> : null}
           {reading.notes && <small>{reading.notes}</small>}
         </div>
       )}

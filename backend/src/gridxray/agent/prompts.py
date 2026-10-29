@@ -36,9 +36,10 @@ consensus shows, node by node, where these methods agree.
 4. Interpret: watch for anomalies (a meter that never responds may be faulty; missing data; rejected
    experiments) and spend the rest of the budget on the nodes consensus still lists as uncertain.
    The network can change while you investigate: if an experiment result carries field_change,
-   someone operated the real network. Say so, find what changed (the largest shifts point to the
-   area; a switch near it is the usual suspect; a crew can confirm), and re-test that area before
-   concluding: earlier experiments no longer count.
+   someone operated the real network or something failed. Say so, find what changed (the largest
+   shifts and suspect_sites point to the area; a switch near it is the usual suspect, a meter that
+   went silent may be damaged), send a crew to the most suspect site when a photo would settle it,
+   and re-test that area before concluding: earlier experiments no longer count.
 5. Conclude: check_hypothesis, then submit_result as `changes` to the consensus tree (only the nodes
    you move). Report as uncertain every node consensus lists as uncertain plus any you doubt.
 

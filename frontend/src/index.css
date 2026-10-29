@@ -710,3 +710,4 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .room__title, .room-open { display: inline-flex; align-items: center; gap: 6px; }
 .room__who { display: inline-flex; align-items: center; gap: 5px; }
 .room__ico { display: inline-flex; flex: none; margin-top: 1px; }
+.crew__fault { color: #b03030; }
