@@ -204,6 +204,21 @@ All code in this repository was written during the event (Oct 26 – Nov 4, 2026
 generator, experiment engine, agent tools and loop, field crews, network editor, live intervention, checker, seal,
 API and web UI.
 
+### Hackathon log
+
+- **Day 1 (Oct 27)** — Project base and Meta Model API access; scenario generator (synthetic, CIGRE MV, MV Oberrhein);
+  experiment engine with operating limits; agent tools; Muse Spark investigation loop with Muse Wonder reviews;
+  independent checker; hybrid ensemble (physics, 24 h correlations, geography, Wonder's inference); sealed topology
+  verified in the browser; live investigations over SSE; 3D city view; Evidence page; faster runs and an immediate STOP;
+  explained experiments; Meta API key in the app.
+- **Day 2 (Oct 28)** — Field crews: a Muse Image photo of the site, SAM 3.1 segmentation and a Muse Spark reading of the
+  switch position in every investigation, with outdated records flagged; animated crew in the 3D view.
+- **Day 3 (Oct 29)** — Network editor (design your own network, switches with real and recorded positions); live field
+  intervention with change detection by the experiment engine (no false alarms on unchanged networks); interventions
+  visible in the scene and in the report; the AI's network in the single-line diagram (measured, inferred, correct,
+  wrong, missed); control room with the agents at work and a control center sending each experiment's signals;
+  nameplates and hover-only labels; per-image costs in usage; ablation Spark alone vs Spark + Wonder; full README.
+
 ## Third-party
 
 | Component | License | Use |
