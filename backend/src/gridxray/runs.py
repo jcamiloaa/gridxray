@@ -44,6 +44,8 @@ class LiveRun:
     score: dict | None = None
     usage: dict | None = None
     seal_nonce: str | None = field(default=None, repr=False)
+    plan_kind: str = "none"  # the utility's initial plan for this run
+    plan_date: str | None = None
     investigator: Investigator | None = field(default=None, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     closed: bool = False  # stopped by the user: the log is final, late work from the thread is dropped
@@ -55,6 +57,8 @@ class LiveRun:
                 return
             if not self.closed:
                 self.events.append(event)
+        if event["kind"] == "started":  # in autonomous mode the planning agent decided the budget
+            self.budget = int(event.get("budget") or self.budget)
         if event["kind"] == "usage":  # a model call that was in flight when stopped is still billed
             self.usage = {k: v for k, v in event.items() if k not in ("t", "kind")}
         if time.monotonic() - self._flushed > FLUSH_EVERY or event["kind"] in ("experiment", "result", "done"):
@@ -70,6 +74,7 @@ class LiveRun:
             row = db.get(InvestigationRun, self.id)
             if row:
                 row.status, row.events, row.score, row.usage = self.status, self.since(0), self.score, self.usage
+                row.budget = self.budget
                 db.commit()
 
 
@@ -130,14 +135,14 @@ class RunManager:
         return sum(r.status == "running" for r in self.runs.values())
 
     def start(self, user_id: int, source: str, seed: int, budget: int, session: str | None = None,
-              language: str = "en") -> LiveRun:
-        run = LiveRun(uuid.uuid4().hex, user_id, source, seed, budget, session, language)
+              language: str = "en", plan_kind: str = "none", plan_date: str | None = None) -> LiveRun:
+        run = LiveRun(uuid.uuid4().hex, user_id, source, seed, budget, session, language, plan_kind=plan_kind, plan_date=plan_date)
         self.runs[run.id] = run
         with SessionLocal() as db:
             run.seal_nonce = new_nonce()
             db.add(InvestigationRun(id=run.id, user_id=user_id, source=source, seed=seed, budget=budget,
                                     status="running", events=[], session_key=session, language=language,
-                                    seal_nonce=run.seal_nonce))
+                                    seal_nonce=run.seal_nonce, plan_kind=plan_kind, plan_date=plan_date))
             db.commit()
         self._spawn(run)
         return run
@@ -145,7 +150,8 @@ class RunManager:
     def resume(self, row: InvestigationRun) -> LiveRun:
         """Continue a run that stopped mid-way (restart, failure or user stop) from its event log."""
         run = LiveRun(row.id, row.user_id, row.source, row.seed, row.budget, row.session_key,
-                      row.language or "en", events=list(row.events or []), usage=row.usage, seal_nonce=row.seal_nonce)
+                      row.language or "en", events=list(row.events or []), usage=row.usage, seal_nonce=row.seal_nonce,
+                      plan_kind=row.plan_kind or "none", plan_date=row.plan_date)
         run.status = "running"
         self.runs[run.id] = run
         run.flush()
@@ -240,9 +246,12 @@ class RunManager:
 
             with SessionLocal() as db:
                 api_key = key_for_user(db, run.user_id)  # the owner's key from the app, else backend/.env
-            inv = Investigator(s, budget=run.budget, client=self.client_factory(api_key=api_key),
+            from gridxray.agent.planner import make_plan
+
+            inv = Investigator(s, budget=run.budget or None, client=self.client_factory(api_key=api_key),
                                on_event=lambda e: run.push(e.to_dict()), language=run.language, t_offset=t_offset,
-                               save_media=lambda data: media.save(run.id, data))
+                               save_media=lambda data: media.save(run.id, data),
+                               plan=make_plan(s, run.plan_kind, run.plan_date), autonomous=run.budget == 0)
             run.investigator = inv
             if run.closed:  # stopped before the investigator existed
                 return

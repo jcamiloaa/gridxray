@@ -155,6 +155,9 @@ class ToolBox:
 
         self.switch_site = switch_sites(scenario)  # GIS: where each switch is installed (not how it is wired)
         self.field_findings: list[dict] = []
+        self.plan = None  # the utility's drawing (agent/planner.Plan), if it has one
+        self.plan_trust = 0.0  # set by the planning agent; the drawing votes in the ensemble from 0.5
+        self.plan_today = None
 
     # ------------------------------------------------------------ plumbing
 
@@ -179,7 +182,21 @@ class ToolBox:
         return self._passive
 
     def ensemble(self):
-        return consensus(self.obs, self.evidence(), self.passive(), self.meta_tree)
+        from gridxray.tools.reconstruct import Candidate
+
+        plan = (Candidate(dict(self.plan.parent), {n: "inferred" for n in self.plan.parent})
+                if self.plan is not None and self.plan_trust >= 0.5 else None)
+        return consensus(self.obs, self.evidence(), self.passive(), self.meta_tree, plan)
+
+    def plan_view(self) -> dict | None:
+        """The drawing as the agents see it: a record with a date, which may be outdated or wrong."""
+        if self.plan is None:
+            return None
+        return {"drawn_on": self.plan.drawn_on, "today": str(self.plan_today),
+                "age_years": self.plan.age_years(self.plan_today),
+                "connections": [{"child": self.name[c], "parent": self.name[p]} for c, p in sorted(self.plan.parent.items())],
+                "not_on_plan": [self.name[n] for n in self.plan.missing],
+                "trust_from_planner": self.plan_trust}
 
     def _parents(self, edges: list[dict] | None = None, changes: list[dict] | None = None) -> dict[int, int]:
         """A full proposal from explicit edges, or the ensemble's tree with the given changes."""
@@ -235,6 +252,7 @@ class ToolBox:
                          for s in self.obs.switches if s.kind in ("tie", "sectionalizer", "recloser")],
             "hour": self.obs.hour,
             "budget_remaining": self.engine.remaining,
+            **({"documented_plan": self.plan_view()} if self.plan is not None else {}),
             "notes": "Blocks are city grid cells; line sections only join blocks at most 2 streets apart. "
                      "Voltage drops with electrical distance from the substation.",
         }

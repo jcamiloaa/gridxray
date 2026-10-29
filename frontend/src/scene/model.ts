@@ -115,6 +115,7 @@ export interface Overlay {
   missed?: [number, number][] // true connections the AI did not find (shown after reveal)
   focus?: { id?: number; node: number; drops: Record<number, number> } // last load experiment
   hub?: number // the substation next to the control center, where signals start
+  plan?: [number, number][] // the utility's initial drawing (child, parent), shown on request
   // field crew on its way to / working at a site ("dispatch crew")
   // what you changed in the field during the run, shown where it happened
   incidents?: { id: string; node: number; kind: 'meter' | 'switch'; label: string; state?: 'open' | 'closed' }[]

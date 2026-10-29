@@ -6,7 +6,7 @@ import { ICON_PATHS } from './iconPaths'
 import { TOOL_LABEL } from './toolLabels'
 
 /** Who acts in the control room. */
-type Actor = 'you' | 'spark' | 'wonder' | 'field' | 'grid' | 'checker'
+type Actor = 'you' | 'planner' | 'spark' | 'wonder' | 'field' | 'grid' | 'checker'
 
 interface Step {
   id: number
@@ -18,14 +18,15 @@ interface Step {
 }
 
 const DESKS: Record<Actor, { x: number; label: string; sub: string; color: string; glyph: string }> = {
-  you: { x: 50, label: 'You', sub: 'operator', color: '#5d6b7a', glyph: 'user' },
-  spark: { x: 150, label: 'Muse Spark', sub: 'lead investigator', color: '#0e6e8c', glyph: 'S' },
-  wonder: { x: 250, label: 'Muse Wonder', sub: 'second opinion', color: '#7c4ddb', glyph: 'W' },
-  field: { x: 350, label: 'Field crew', sub: 'Image · SAM 3.1', color: '#f26b1d', glyph: 'truck' },
-  grid: { x: 450, label: 'The network', sub: 'pandapower', color: '#1f6fb2', glyph: 'bolt' },
-  checker: { x: 550, label: 'Checker', sub: 'no AI', color: '#17a673', glyph: 'check' },
+  you: { x: 45, label: 'You', sub: 'operator', color: '#5d6b7a', glyph: 'user' },
+  planner: { x: 135, label: 'Planner', sub: 'initial plan', color: '#b5651d', glyph: 'P' },
+  spark: { x: 225, label: 'Muse Spark', sub: 'lead investigator', color: '#0e6e8c', glyph: 'S' },
+  wonder: { x: 315, label: 'Muse Wonder', sub: 'second opinion', color: '#7c4ddb', glyph: 'W' },
+  field: { x: 405, label: 'Field crew', sub: 'Image · SAM 3.1', color: '#f26b1d', glyph: 'truck' },
+  grid: { x: 495, label: 'The network', sub: 'pandapower', color: '#1f6fb2', glyph: 'bolt' },
+  checker: { x: 585, label: 'Checker', sub: 'no AI', color: '#17a673', glyph: 'check' },
 }
-const W = 600
+const W = 630
 const DESK_Y = 62
 
 /** Markdown from the models as plain text: bubbles are one short paragraph. */
@@ -101,8 +102,19 @@ function useSteps(events: RunEvent[]): Step[] {
             logic: `${t('Hypothesis')} · ${Math.round(Number(e.confidence) * 100)}%` })
           break
         case 'review_started':
-          add({ actor: 'spark', to: 'wonder', icon: 'handshake', text: t('room.ask_wonder') })
+          if (e.trigger === 'planning') add({ actor: 'you', to: 'planner', icon: 'clipboard', text: t('room.ask_planner') })
+          else add({ actor: 'spark', to: 'wonder', icon: 'handshake', text: t('room.ask_wonder') })
           break
+        case 'plan_review': {
+          const p = e.plan as { drawn_on: string; age_years: number } | null
+          const d = (e.decision ?? {}) as { trust_in_plan?: number }
+          add({ actor: 'planner', to: 'spark', icon: 'map',
+            text: (p ? t('room.plan').split('{date}').join(p.drawn_on).split('{age}').join(String(p.age_years))
+              .split('{trust}').join(String(Math.round((d.trust_in_plan ?? 0) * 100))) : t('room.noplan'))
+              + ' ' + t('room.budget').split('{b}').join(String(e.budget)) + (e.autonomous ? ` ${t('(autonomous)')}` : ''),
+            logic: t('room.plan.logic') })
+          break
+        }
         case 'review':
           add({ actor: 'wonder', to: 'spark', icon: 'brain', text: clip(String(e.advice), 180), logic: t('room.review.logic') })
           break

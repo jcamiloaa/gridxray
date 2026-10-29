@@ -38,6 +38,7 @@ def init_db() -> None:
         from sqlalchemy import text
 
         with engine.begin() as conn:
-            for ddl in ("session_key VARCHAR(32)", "language VARCHAR(5) DEFAULT 'en'", "usage JSON", "seal_nonce VARCHAR(64)"):
+            for ddl in ("session_key VARCHAR(32)", "language VARCHAR(5) DEFAULT 'en'", "usage JSON", "seal_nonce VARCHAR(64)",
+                        "plan_kind VARCHAR(16)", "plan_date VARCHAR(10)"):
                 conn.execute(text(f"ALTER TABLE investigations ADD COLUMN IF NOT EXISTS {ddl}"))
             conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS meta_api_key_enc TEXT"))

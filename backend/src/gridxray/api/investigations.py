@@ -25,8 +25,10 @@ class StartRequest(BaseModel):
     reference: Reference | None = None
     grid: str | None = Field(default=None, max_length=32)  # a network designed in the editor
     seed: int = 0
-    budget: int = Field(default=10, ge=1, le=40)
+    budget: int = Field(default=10, ge=0, le=40)  # 0 = autonomous: the planning agent decides
     language: str = Field(default="en", pattern="^(en|es)$")
+    plan: str = Field(default="none", pattern="^(none|current|old|errors)$")  # the utility's initial plan
+    plan_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
 
 
 Session = Annotated[str | None, Cookie(alias=DEVICE_COOKIE)]  # the browser, so sign-out keeps your runs
@@ -63,7 +65,7 @@ def start(body: StartRequest, user: CurrentUser, session: Session = None) -> dic
 
         with SessionLocal() as db:
             source = f"custom:{owned_grid(db, body.grid, user, session).id}"
-    run = manager.start(user.id, source, body.seed, body.budget, key, body.language)
+    run = manager.start(user.id, source, body.seed, body.budget, key, body.language, body.plan, body.plan_date)
     return {"id": run.id, "source": source, "seed": body.seed, "budget": body.budget}
 
 

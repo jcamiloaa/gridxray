@@ -97,7 +97,8 @@ class Consensus:
     uncertain: list[int]
 
 
-def consensus(obs: ObservableGrid, ev: Evidence, passive: Passive | None, meta: Candidate | None = None) -> Consensus:
+def consensus(obs: ObservableGrid, ev: Evidence, passive: Passive | None, meta: Candidate | None = None,
+              plan: Candidate | None = None) -> Consensus:
     """Ensemble of physics (experiments), traditional ML (correlations), geography and the Meta
     model's own inference from the raw experiment data.
 
@@ -111,11 +112,14 @@ def consensus(obs: ObservableGrid, ev: Evidence, passive: Passive | None, meta: 
         methods["correlation"] = passive.tree
     if meta:
         methods["meta_ai"] = meta
+    if plan:  # the utility's drawing, counted only when the planning agent trusts it
+        methods["plan"] = plan
     parent, agreement, votes, uncertain = {}, {}, {}, []
     for n in (x.id for x in obs.nodes):
         ballot: dict[int, list[str]] = {}
         for name, cand in methods.items():
-            ballot.setdefault(cand.parent[n], []).append(name)
+            if n in cand.parent:  # an old drawing has no say on substations built after it
+                ballot.setdefault(cand.parent[n], []).append(name)
         votes[n] = ballot
         if physics.basis.get(n) == "measured":
             choice = physics.parent[n]
@@ -125,7 +129,7 @@ def consensus(obs: ObservableGrid, ev: Evidence, passive: Passive | None, meta: 
             leaders = [p for p, k in tally.items() if k == top]
             choice = physics.parent[n] if physics.parent[n] in leaders else leaders[0]
         parent[n] = choice
-        agreement[n] = len(ballot.get(choice, [])) / len(methods)
+        agreement[n] = len(ballot.get(choice, [])) / sum(1 for c in methods.values() if n in c.parent)
         if physics.basis.get(n) != "measured" and len(ballot) > 1:
             uncertain.append(n)
     return Consensus(parent, agreement, votes, uncertain)

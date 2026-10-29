@@ -107,6 +107,10 @@ export function HypothesisLayer({ overlay, pos }: { overlay: Overlay; pos: Map<n
         </>
       )}
       <SignalLayer overlay={overlay} pos={pos} />
+      {overlay.plan?.map(([c, p]) => pos.has(c) && pos.has(p) && ( // the initial plan, as drawn by the utility
+        <Line key={`plan${c}-${p}`} points={route(pos.get(p)!, pos.get(c)!).map((q) => [q[0], 1.2, q[1]] as [number, number, number])}
+          color="#7c4ddb" lineWidth={2.2} dashed dashSize={0.25} gapSize={0.2} transparent opacity={0.85} />
+      ))}
       {overlay.incidents && <IncidentLayer incidents={overlay.incidents} pos={pos} />}
       {overlay.crew && <CrewLayer key={overlay.crew.visit} crew={overlay.crew} pos={pos} />}
     </group>

@@ -33,6 +33,8 @@ class InvestigationRun(Base):
     language: Mapped[str] = mapped_column(String(5), default="en")
     usage: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     seal_nonce: Mapped[str | None] = mapped_column(String(64), nullable=True)  # revealed only when finished
+    plan_kind: Mapped[str | None] = mapped_column(String(16), nullable=True)  # initial plan: none | current | old | errors
+    plan_date: Mapped[str | None] = mapped_column(String(10), nullable=True)  # when that plan was drawn (ISO date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

@@ -122,3 +122,16 @@ def test_stop_is_immediate_even_while_the_model_is_thinking(client, monkeypatch)
     after = client.get(f"/investigations/{run_id}").json()
     assert after["status"] == "stopped" and len(after["events"]) == len(body["events"])
     assert not any(e["kind"] == "experiment" for e in after["events"])
+
+
+def test_autonomous_run_with_an_old_plan(client):
+    run_id = client.post("/investigations", json={"complexity": "easy", "seed": 1, "budget": 0, "plan": "old",
+                                                  "language": "es"}).json()["id"]
+    body = wait_done(client, run_id)
+    review = next(e for e in body["events"] if e["kind"] == "plan_review")
+    assert body["status"] == "done" and review["autonomous"] and review["budget"] == 6 and review["plan"]["kind"] == "old"
+    assert client.get("/investigations").json()[0]["budget"] == 6  # the planner's budget is stored with the run
+    html = client.get(f"/investigations/{run_id}/report", params={"lang": "es"}).text
+    assert "Plano inicial y agente planificador" in html and "decidido por el agente planificador" in html
+    plan = client.post("/scenarios/plan", params={"kind": "old", "complexity": "easy", "seed": 1}).json()
+    assert plan["plan"]["age_years"] > 8 and plan["plan"]["missing"]

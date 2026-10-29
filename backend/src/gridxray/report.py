@@ -32,7 +32,11 @@ T = {
         "shifts": "Largest voltage shifts", "how_seen": {"baseline": "the baseline readings moved", "repeated experiment": "a repeated experiment answered differently"},
         "inc_score": "The result is scored against the network as it ended; the original seal still verifies the network at the start.",
         "new_seal": "New commitment published at the change", "incidents_kv": "Field incidents", "detected_kv": "Detected by the AI",
-        "designed": "designed network", "aside": "set aside: the network changed afterwards",
+        "designed": "designed network", "plan": "Initial plan and planning agent", "plan_none": "The utility had no initial plan.",
+        "plan_kinds": {"current": "up to date", "old": "old", "errors": "with errors"}, "drawn": "drawn on", "today": "today",
+        "age": "age", "years": "years", "plan_acc": "Plan against the real network", "ai_acc": "GridXray's result",
+        "trust": "Planner's trust in the plan", "budget_by": "Budget", "auto": "decided by the planning agent (autonomous)",
+        "fixed": "set by the user", "not_on_plan": "substations not on the plan", "aside": "set aside: the network changed afterwards",
         "kinds": {"tie": "tie", "sectionalizer": "sectionalizer", "recloser": "recloser", "fuse": "fuse"},
     },
     "es": {
@@ -60,7 +64,11 @@ T = {
         "shifts": "Mayores cambios de tensión", "how_seen": {"baseline": "las lecturas base se movieron", "repeated experiment": "un experimento repetido respondió distinto"},
         "inc_score": "El resultado se evalúa contra la red como quedó al final; el sello original sigue verificando la red del inicio.",
         "new_seal": "Nueva huella publicada en el cambio", "incidents_kv": "Incidencias en campo", "detected_kv": "Detectadas por la IA",
-        "designed": "red diseñada", "aside": "descartado: la red cambió después",
+        "designed": "red diseñada", "plan": "Plano inicial y agente planificador", "plan_none": "La empresa no tenía plano inicial.",
+        "plan_kinds": {"current": "actualizado", "old": "antiguo", "errors": "con errores"}, "drawn": "dibujado el", "today": "hoy",
+        "age": "antigüedad", "years": "años", "plan_acc": "Plano contra la red real", "ai_acc": "Resultado de GridXray",
+        "trust": "Confianza del planificador en el plano", "budget_by": "Presupuesto", "auto": "decidido por el agente planificador (autónomo)",
+        "fixed": "fijado por el usuario", "not_on_plan": "subestaciones que no están en el plano", "aside": "descartado: la red cambió después",
         "kinds": {"tie": "enlace", "sectionalizer": "seccionador", "recloser": "reconectador", "fuse": "fusible"},
     },
 }
@@ -170,6 +178,32 @@ def incidents_html(events: list[dict], t: dict) -> tuple[str, int, int]:
     return "".join(out), len(ivs), detected
 
 
+def plan_html(review: dict | None, s, g: dict | None, t: dict) -> str:
+    """The utility's initial plan (kind, date, age), how right it was, and what the planning agent decided."""
+    e = escape
+    if review is None:
+        return f"<h2>{t['plan']}</h2><p class='note'>{t['plan_none']}</p>"
+    out = [f"<h2>{t['plan']}</h2>"]
+    p, d = review.get("plan"), review.get("decision") or {}
+    if p:
+        from gridxray.agent.planner import true_parent
+
+        truth = true_parent(s)
+        correct = sum(1 for x in p["edges"] if truth.get(x["child"]) == x["parent"])
+        out.append(f"<div class='kv'><div><b>{e(t['plan_kinds'].get(p['kind'], p['kind']))}</b><span>{t['plan']}</span></div>"
+                   f"<div><b>{e(p['drawn_on'])}</b><span>{t['drawn']} · {t['today']} {e(p['today'])}</span></div>"
+                   f"<div><b>{p['age_years']} {t['years']}</b><span>{t['age']}</span></div>"
+                   f"<div><b>{correct}/{len(truth)}</b><span>{t['plan_acc']}</span></div>"
+                   + (f"<div><b>{g['correct_edges']}/{g['total_edges']}</b><span>{t['ai_acc']}</span></div>" if g else "")
+                   + f"<div><b>{round(float(d.get('trust_in_plan', 0)) * 100)}%</b><span>{t['trust']}</span></div></div>")
+        if p.get("missing"):
+            out.append(f"<p>{len(p['missing'])} {t['not_on_plan']}: {e(', '.join(str(x) for x in p['missing']))}</p>")
+    out.append(f"<p><b>{t['budget_by']}:</b> {review.get('budget')} · {t['auto'] if review.get('autonomous') else t['fixed']}</p>")
+    if d.get("strategy") or d.get("reasoning"):
+        out.append(f"<div class='note'>{md(str(d.get('reasoning', '')))}{md(str(d.get('strategy', '')))}</div>")
+    return "".join(out)
+
+
 def render(row, lang: str | None = None) -> str:
     lang = lang if lang in T else (row.language if getattr(row, "language", None) in T else "en")
     t = T[lang]
@@ -214,6 +248,8 @@ def render(row, lang: str | None = None) -> str:
                    f"<div><b>{n_inc}</b><span>{t['incidents_kv']}</span></div>"
                    f"<div><b>{n_det}/{n_inc}</b><span>{t['detected_kv']}</span></div></div>")
     out.append(inc_html)
+    review = next((ev for ev in events if ev.get("kind") == "plan_review"), None)
+    out.append(plan_html(review, s, g, t))
     if result.get("summary"):
         out.append(f"<h2>{t['summary']}</h2><div class='note'>{md(result['summary'])}</div>")
     if proposed:

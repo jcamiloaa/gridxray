@@ -135,6 +135,7 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
               </div></li>
             )
           case 'review_started':
+            if (e.trigger === 'planning') return <li key={i} className="tl tl--sys"><span className="tl__icon tl__icon--planner">P</span><div><p>{t('The planning agent is reviewing the initial plan…')}</p></div></li>
             return <li key={i} className="tl tl--sys"><span className="tl__icon tl__icon--wonder">W</span><div><p>{t('Muse Wonder is reviewing the evidence')} ({String(e.trigger)})…</p></div></li>
           case 'review':
             return <li key={i} className="tl tl--review"><span className="tl__icon tl__icon--wonder">W</span><div>
@@ -146,6 +147,26 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
           case 'stopped':
           case 'recovered':
             return <li key={i} className="tl tl--sys"><span className="tl__icon">↻</span><div><p>{String(e.message)}</p></div></li>
+          case 'plan_review': {
+            const p = e.plan as { kind: string; drawn_on: string; today: string; age_years: number; edges: unknown[]; missing: string[] } | null
+            const d = (e.decision ?? {}) as { trust_in_plan?: number; priorities?: string[]; strategy?: string; reasoning?: string }
+            const c = e.checks as { drawn_connections: number; fit_geography: number; fit_voltage_profile: number; agree_with_24h_correlation: number } | null
+            return (
+              <li key={i} className="tl tl--plan"><span className="tl__icon tl__icon--planner">P</span><div>
+                <b>{t('Planning agent · initial plan reviewed')}</b>
+                {p ? (
+                  <p>{t('Plan drawn on')} <b>{p.drawn_on}</b> ({p.age_years} {t('years')} · {t('today')} {p.today}) · {p.edges.length} {t('connections')}
+                    {p.missing.length ? ` · ${p.missing.length} ${t('substations not on the plan')}` : ''}</p>
+                ) : <p>{t('No initial plan: the investigation starts from the meters alone.')}</p>}
+                {c && <p className="muted">{t('Free checks')}: {t('geography')} {c.fit_geography}/{c.drawn_connections} · {t('voltage profile')} {c.fit_voltage_profile}/{c.drawn_connections} · {t('24 h correlation')} {c.agree_with_24h_correlation}/{c.drawn_connections}</p>}
+                <p>{p && <>{t('Trust in the plan')}: <b>{Math.round((d.trust_in_plan ?? 0) * 100)}%</b> · </>}
+                  {t('Budget')}: <b>{String(e.budget)}</b> {e.autonomous ? `(${t('decided by the planning agent')})` : `(${t('set by you')})`}</p>
+                {d.priorities?.length ? <p className="muted">{t('Start with')}: {d.priorities.join(', ')}</p> : null}
+                {d.reasoning ? <Markdown text={String(d.reasoning)} /> : null}
+                {d.strategy ? <Markdown text={String(d.strategy)} /> : null}
+              </div></li>
+            )
+          }
           case 'intervention': {
             const sws = (e.switches ?? []) as { id: number; kind: string; closed: boolean; between: string[] }[]
             const off = (e.meters_off ?? []) as string[]

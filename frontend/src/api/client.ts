@@ -147,14 +147,30 @@ export interface RunEvent {
 }
 
 export const EVENT_KINDS = ['sealed', 'started', 'meta_inference', 'crew_dispatched', 'crew_stage', 'field_photo', 'segmentation', 'field_reading', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
-  'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done', 'intervention', 'change_detected']
+  'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done', 'intervention', 'change_detected', 'plan_review']
 
 export interface ActiveRun { id: string; source: string; seed: number; budget: number }
 
 export const getActiveInvestigation = () => request<ActiveRun | null>('/investigations/active')
 
-export function startInvestigation(source: ScenarioSource, seed: number, budget: number, language = 'en'): Promise<{ id: string }> {
-  return request('/investigations', { method: 'POST', body: JSON.stringify({ ...source, seed, budget, language }) })
+export type PlanKind = 'none' | 'current' | 'old' | 'errors'
+
+/** budget 0 = autonomous: the planning agent decides how many experiments are needed. */
+export function startInvestigation(source: ScenarioSource, seed: number, budget: number, language = 'en',
+  plan: PlanKind = 'none', planDate: string | null = null): Promise<{ id: string }> {
+  return request('/investigations', { method: 'POST', body: JSON.stringify({ ...source, seed, budget, language, plan, plan_date: planDate }) })
+}
+
+export interface InitialPlan { kind: PlanKind; drawn_on: string; age_years: number; edges: [number, number][]; missing: number[] }
+
+/** The utility's initial plan for a network (its drawing, with the date it was drawn). */
+export function getPlan(source: ScenarioSource, seed: number, kind: PlanKind, drawnOn: string | null): Promise<{ today: string; plan: InitialPlan | null }> {
+  const q = new URLSearchParams({ kind, seed: String(seed) })
+  if ('grid' in source) q.set('grid', source.grid)
+  else if ('reference' in source) q.set('reference', source.reference)
+  else q.set('complexity', source.complexity)
+  if (drawnOn) q.set('drawn_on', drawnOn)
+  return request(`/scenarios/plan?${q}`, { method: 'POST' })
 }
 
 export interface RunSummary {

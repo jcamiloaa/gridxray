@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { money, pct } from '../money'
-import { createScenario, getActiveInvestigation, getTruth, grids, sourceOf, type Design, type GridSummary, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
+import { createScenario, getActiveInvestigation, getPlan, getTruth, grids, type InitialPlan, type PlanKind, sourceOf, type Design, type GridSummary, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
 import { ControlRoom } from '../components/ControlRoom'
 import { FieldPanel } from '../components/FieldPanel'
 import { GridEditor } from '../components/GridEditor'
@@ -77,6 +77,22 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
   const [cmpFilter, setCmpFilter] = useState<DiffKind | null>(null)
   useEffect(() => { setCmpView('diff'); setCmpFilter(null) }, [run.compared])
   const [budget, setBudget] = useState(10)
+  // the utility's initial plan: always asked (none, up to date, old or with errors), with the date it was drawn
+  const today = new Date().toISOString().slice(0, 10)
+  const [planKind, setPlanKind] = useState<PlanKind | null>(null)
+  const [planDate, setPlanDate] = useState<string>('')
+  const [planInfo, setPlanInfo] = useState<InitialPlan | null>(null)
+  const [showPlan, setShowPlan] = useState(false)
+  const defaultDate = (k: PlanKind) => {
+    const d = new Date()
+    d.setDate(d.getDate() - ({ none: 0, current: 90, old: 9 * 365, errors: 400 } as const)[k])
+    return d.toISOString().slice(0, 10)
+  }
+  const ageYears = (iso: string) => Math.max(0, (Date.parse(today) - Date.parse(iso)) / (365.25 * 864e5))
+  useEffect(() => {
+    if (!generated || !planKind || planKind === 'none') { setPlanInfo(null); return }
+    getPlan(generated.source, generated.seed, planKind, planDate || null).then((r) => setPlanInfo(r.plan), () => setPlanInfo(null))
+  }, [generated, planKind, planDate])
 
   // open an investigation (live or finished): load its network, then follow or replay its events
   const pendingAttach = useRef<string | null>(null)
@@ -113,14 +129,15 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
 
   /** What the scene draws on top of the network: live hypothesis, or after comparing one of three views. */
   const sceneOverlay = useMemo<Overlay | undefined>(() => {
-    const o = run.overlay
+    const plan = showPlan && planInfo ? planInfo.edges : undefined
+    const o = plan ? { ...(run.overlay ?? { edges: [] }), plan } : run.overlay
     if (!o || !run.compared) return o
     if (cmpView === 'real') return o.crew ? { edges: [], crew: o.crew } : undefined
     if (cmpView === 'ai') return { ...o, missed: undefined, edges: o.edges.map((e) => ({ ...e, status: e.basis ?? 'proposed' })) }
     const idByName = new Map(scenario?.nodes.map((n) => [n.name, n.id]))
     const notes = (run.comparison?.wrong ?? []).filter((r) => idByName.has(r.node)).map((r) => ({ node: idByName.get(r.node)!, ai: r.ai, real: r.real }))
     return { ...o, diff: { highlight: cmpFilter, notes, words: { ai: t('AI'), real: t('Real') } } }
-  }, [run.overlay, run.compared, run.comparison, cmpView, cmpFilter, scenario, t])
+  }, [run.overlay, run.compared, run.comparison, cmpView, cmpFilter, scenario, t, showPlan, planInfo])
   const diffCounts = run.overlay && run.compared ? {
     correct: run.overlay.edges.filter((e) => e.status === 'correct').length,
     wrong: run.overlay.edges.filter((e) => e.status === 'wrong').length,
@@ -274,6 +291,28 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 <b>＋ {t('Design a network')}</b><span>{t('Draw substations, cables and switches; then let the AI discover it')}</span>
               </button>
             </div>
+            <div className="plan-pick" role="radiogroup" aria-label={t('Initial plan of the network')}>
+              <span className="row" style={{ gap: 6, fontSize: '.88rem' }}><b>{t('Initial plan of the network')}</b><Info>{t('plan.info')}</Info></span>
+              <div className="plan-pick__opts">
+                {(['none', 'current', 'old', 'errors'] as PlanKind[]).map((k) => (
+                  <button key={k} role="radio" aria-checked={planKind === k} className={`plan-opt${planKind === k ? ' is-on' : ''}`}
+                    onClick={() => { setPlanKind(k); setPlanDate(k === 'none' ? '' : defaultDate(k)) }}>
+                    <b>{t(`plan.${k}`)}</b><span>{t(`plan.${k}.text`)}</span>
+                  </button>
+                ))}
+              </div>
+              {planKind && planKind !== 'none' && (
+                <label className="row plan-pick__date">
+                  <span>{t('Drawn on')}</span>
+                  <input type="date" value={planDate} max={today} onChange={(e) => setPlanDate(e.target.value)} />
+                </label>
+              )}
+              <small className="muted">
+                {t('System date')}: <b>{today}</b>
+                {planKind && planKind !== 'none' && planDate && <> · {t('plan age')}: <b>{ageYears(planDate).toFixed(1)} {t('years')}</b></>}
+              </small>
+              {!planKind && <small className="plan-pick__ask">{t('Tell us whether the utility has a plan (even an old one).')}</small>}
+            </div>
             <button className="btn-primary btn-lg" onClick={() => generate()} disabled={busy}>
               {busy ? t('Solving power flow…') : scenario ? t('Generate a new grid') : t('Generate grid')}
             </button>
@@ -312,10 +351,19 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 <label className="row" style={{ fontSize: '.88rem', justifyContent: 'space-between' }}>
                   <span className="row" style={{ gap: 6 }}>{t('Experiment budget')}<Info>{t('budget.info')}</Info></span>
                   <select value={budget} onChange={(e) => setBudget(Number(e.target.value))} disabled={run.status === 'running'}>
+                    <option value={0}>{t('Autonomous (the planning agent decides)')}</option>
                     {[5, 8, 10, 15, 20, 30].map((b) => <option key={b} value={b}>{b} {t('experiments')}</option>)}
                   </select>
                 </label>
-                <button className="btn-primary btn-lg" onClick={() => run.start(budget, lang)} disabled={run.status === 'running'}>
+                {!planKind && <p className="plan-pick__ask">{t('Choose the initial plan in step 1 first.')}</p>}
+                {planInfo && (
+                  <label className="row" style={{ gap: 8, fontSize: '.86rem' }}>
+                    <input type="checkbox" checked={showPlan} onChange={(e) => setShowPlan(e.target.checked)} />
+                    {t('Show the initial plan on the map')} ({planInfo.edges.length} {t('connections')}{planInfo.missing.length ? `, ${planInfo.missing.length} ${t('missing')}` : ''})
+                  </label>
+                )}
+                <button className="btn-primary btn-lg" onClick={() => run.start(budget, lang, planKind ?? 'none', planKind && planKind !== 'none' ? planDate || null : null)}
+                  disabled={run.status === 'running' || !planKind}>
                   {run.status === 'running' ? t('Investigating…') : run.status === 'idle' ? t('Start investigation') : t('Run again')}
                 </button>
                 {run.status === 'running' && <button className="btn-stop" onClick={run.stop}>■ {t('STOP')}</button>}
@@ -325,8 +373,8 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                 {(run.status === 'failed' || run.status === 'stopped') && run.runId && <button onClick={run.resume}>{t('Resume')}</button>}
                 {run.status === 'running' && (
                   <div className="run-progress">
-                    <span>{t('Experiments')} {run.experimentsUsed}/{run.budget || budget}</span>
-                    <span className="run-progress__bar"><i style={{ width: `${(100 * run.experimentsUsed) / (run.budget || budget)}%` }} /></span>
+                    <span>{t('Experiments')} {run.experimentsUsed}/{run.budget || budget || t('planning…')}</span>
+                    <span className="run-progress__bar"><i style={{ width: `${(run.budget || budget) ? (100 * run.experimentsUsed) / (run.budget || budget) : 0}%` }} /></span>
                   </div>
                 )}
                 {run.error && (

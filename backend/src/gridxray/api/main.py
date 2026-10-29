@@ -10,6 +10,7 @@ from gridxray import __version__
 from gridxray.api.auth import CurrentUser
 from gridxray.api.auth import router as auth_router
 from gridxray.api.grids import router as grids_router
+from gridxray.api.investigations import Session as InvSession
 from gridxray.api.investigations import router as investigations_router
 from gridxray.api.settings import router as settings_router
 from gridxray.auth.service import ensure_demo_user
@@ -73,6 +74,39 @@ def scenario_truth(
     """Ground truth for a scenario (scenarios are deterministic per seed). For the reveal step only."""
     s = load_reference(reference, seed) if reference else generate_scenario(complexity, seed)
     return {"truth": s.reveal()}
+
+
+@app.post("/scenarios/plan")
+def scenario_plan(
+    user: CurrentUser,
+    kind: str = "current",
+    complexity: Complexity = Complexity.EASY,
+    seed: int = 0,
+    reference: Reference | None = None,
+    grid: str | None = None,
+    drawn_on: str | None = None,
+    session: InvSession = None,
+) -> dict:
+    """The utility's initial plan for a scenario (what it would hand the investigators), with its date."""
+    from datetime import date
+
+    from gridxray.agent.planner import make_plan, plan_accuracy
+
+    if grid:
+        from gridxray.api.grids import owned_grid
+        from gridxray.lab.custom import Design, build_custom
+
+        with SessionLocal() as db:
+            row = owned_grid(db, grid, user, session)
+            s = build_custom(Design(**row.design), seed, f"custom:{row.id}")
+    else:
+        s = load_reference(reference, seed) if reference else generate_scenario(complexity, seed)
+    plan = make_plan(s, kind, drawn_on)
+    if plan is None:
+        return {"plan": None, "today": date.today().isoformat()}
+    return {"today": date.today().isoformat(), "plan": {
+        "kind": plan.kind, "drawn_on": plan.drawn_on, "age_years": plan.age_years(),
+        "edges": [[c, p] for c, p in plan.parent.items()], "missing": plan.missing, "accuracy": plan_accuracy(s, plan)}}
 
 
 @app.get("/evidence")

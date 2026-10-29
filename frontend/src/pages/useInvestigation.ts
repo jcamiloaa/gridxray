@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  field, getSeal, getTruth, resumeRun, startInvestigation, stopRun, streamInvestigation, type CandidateEdge, type ObservableScenario, type RunEvent,
+  field, getSeal, getTruth, resumeRun, startInvestigation, stopRun, streamInvestigation, type CandidateEdge, type ObservableScenario, type PlanKind, type RunEvent,
   type RunScore, type ScenarioSource,
 } from '../api/client'
 import type { Overlay } from '../scene/model'
@@ -90,12 +90,12 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
     }
   }, [idOf, rootId])
 
-  const start = useCallback(async (budget: number, language = 'en') => {
+  const start = useCallback(async (budget: number, language = 'en', plan: PlanKind = 'none', planDate: string | null = null) => {
     if (!generated) return
     close.current()
     setEvents([]); setEdges([]); setFocus(undefined); setCrew(undefined); setIncidents([]); setScore(null); setError(null); setTruthEdges(null); setSeal(null)
     try {
-      const { id } = await startInvestigation(generated.source, generated.seed, budget, language)
+      const { id } = await startInvestigation(generated.source, generated.seed, budget, language, plan, planDate)
       setRunId(id)
       setStatus('running')
       close.current = streamInvestigation(id, onEvent, () => setError('Lost the live connection to the investigation.'))

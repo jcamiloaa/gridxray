@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 import openai
@@ -64,7 +65,8 @@ class Investigation:
 class Investigator:
     def __init__(self, scenario: Scenario, budget: int | None = None, cfg: Settings = settings,
                  on_event: Callable[[Event], None] | None = None, client: MetaClient | None = None,
-                 language: str = "en", t_offset: float = 0.0, save_media: Callable[[bytes], str] | None = None) -> None:
+                 language: str = "en", t_offset: float = 0.0, save_media: Callable[[bytes], str] | None = None,
+                 plan=None, autonomous: bool = False, today: date | None = None) -> None:
         self.cfg = cfg
         self.scenario = scenario  # the orchestrator's side: field crews need what is physically at a site
         self.save_media = save_media
@@ -77,6 +79,10 @@ class Investigator:
         self._meta_thread: threading.Thread | None = None
         self._auto_crew = False
         self._lock = threading.Lock()  # usage is updated by Spark's loop and by Wonder's background inference
+        self.autonomous = autonomous  # the planning agent decides the experiment budget
+        self.planner_brief: str | None = None
+        self.run.toolbox.plan = plan
+        self.run.toolbox.plan_today = today or date.today()
 
     def instructions(self) -> str:
         if self.language == "es":
@@ -111,6 +117,9 @@ class Investigator:
                 tb.notes.append({"statement": e.get("statement"), "confidence": e.get("confidence"), "nodes": e.get("nodes", [])})
             elif kind == "review":
                 self.run.reviews += 1
+            elif kind == "plan_review":
+                tb.plan_trust = float((e.get("decision") or {}).get("trust_in_plan", 0))
+                tb.engine.budget = int(e.get("budget") or tb.engine.budget)
             elif kind == "field_reading":
                 node = tb.id.get(e.get("node", ""))
                 tb.engine.history.append(ExperimentRecord(len(tb.engine.history) + 1, {"type": "field_visit", "node": node},
@@ -412,6 +421,59 @@ class Investigator:
                 "of this investigation; continue from here (do not repeat experiments already done).\n"
                 + dumps(state) + ("\n" + "\n".join(str(x) for x in extra if x) if extra else ""))
 
+    def plan_review(self) -> None:
+        """The planning agent: weighs the utility's drawing against free observations and plans the work."""
+        from gridxray.agent.planner import (
+            PLANNER_INSTRUCTIONS,
+            fallback_budget,
+            parse_plan_decision,
+            plan_checks,
+        )
+
+        tb = self.run.toolbox
+        plan = tb.plan
+        n, metered = len(tb.obs.nodes), len(tb.obs.metered_nodes)
+        missing = sum(1 for m in tb.obs.metered_nodes if (tb.obs.readings.get(m) or {}).get("vm_pu") is None)
+        dossier: dict = {"today": str(tb.plan_today), "secondary_substations": n, "metered": metered,
+                         "missing_readings": missing, "switches": len(tb.obs.switches),
+                         "autonomous_budget": self.autonomous}
+        checks = None
+        if plan is not None:
+            checks = plan_checks(self.scenario, plan, tb.obs.readings, tb.passive().tree.parent)
+            dossier["plan"] = {"drawn_on": plan.drawn_on, "age_years": plan.age_years(tb.plan_today),
+                               "connections": {tb.name[c]: tb.name[p] for c, p in plan.parent.items()},
+                               "not_on_plan": [tb.name[x] for x in plan.missing], "free_checks": checks}
+        else:
+            dossier["plan"] = None
+        if not self.autonomous:
+            dossier["budget_fixed_by_user"] = tb.engine.budget
+        self.emit("review_started", trigger="planning", reason="The planning agent reviews the initial plan and plans the work")
+        rules = PLANNER_INSTRUCTIONS + ("\nWrite strategy and reasoning in Spanish (node names stay as they are)."
+                                        if self.language == "es" else "")
+        try:
+            resp = self.client.respond(self.cfg.spark_model, dumps(dossier), instructions=rules,
+                                       reasoning_effort=self.cfg.spark_reasoning_effort)
+            self.add_usage(self.cfg.spark_model, resp.usage)
+            decision = parse_plan_decision(resp.output_text)
+        except Exception as e:  # noqa: BLE001 - planning is advice: the investigation goes on without it
+            decision = {"budget": 0, "trust_in_plan": 0.0, "reasoning": f"planner unavailable ({type(e).__name__})"}
+        tb.plan_trust = decision["trust_in_plan"] if plan is not None else 0.0
+        if self.autonomous:
+            tb.engine.budget = decision["budget"] or fallback_budget(n, metered, tb.plan_trust)
+        names = {c: tb.name[c] for c in tb.name}
+        self.emit("plan_review", autonomous=self.autonomous, budget=tb.engine.budget, decision=decision, checks=checks,
+                  plan=None if plan is None else {
+                      "kind": plan.kind, "drawn_on": plan.drawn_on, "today": str(tb.plan_today),
+                      "age_years": plan.age_years(tb.plan_today),
+                      "edges": [{"child": c, "parent": p, "child_name": names.get(c), "parent_name": names.get(p)}
+                                for c, p in plan.parent.items()],
+                      "missing": [names.get(x) for x in plan.missing]})
+        self.planner_brief = (f"Planning engineer's brief: trust in the initial plan {tb.plan_trust:.0%}"
+                              f"{' (it votes in the ensemble)' if tb.plan_trust >= 0.5 else ' (it does not vote)'}; "
+                              f"budget {tb.engine.budget}{' decided by the planner' if self.autonomous else ''}. "
+                              f"Start with: {', '.join(decision.get('priorities') or []) or 'your own choice'}. "
+                              f"{decision.get('strategy', '')}")
+
     def first_look(self) -> dict:
         """The free, no-budget first step, computed before Spark's first turn and handed to it directly."""
         tb = self.run.toolbox
@@ -435,8 +497,12 @@ class Investigator:
         nudges = 0
         recoveries = 0
         if self.resumed_from is None:
+            if tb.plan is not None or self.autonomous:
+                self.plan_review()
             self.emit("started", budget=tb.engine.budget, nodes=n, spark=self.cfg.spark_model, wonder=self.cfg.wonder_model)
             inputs = initial_task(tb.engine.budget, n, dumps(self.first_look()))
+            if self.planner_brief:
+                inputs += "\n" + self.planner_brief
             self.emit_candidate("initial guess")
         else:
             self.emit("resumed", message=f"Investigation resumed: {self.run.experiments_used} experiments restored, "

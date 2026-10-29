@@ -33,6 +33,9 @@ consensus shows, node by node, where these methods agree.
    reading of the photo. Use it where a picture settles what voltages cannot, above all the real
    position of a switch whose record may be outdated (switch sites are in get_overview). The
    orchestrator sends one crew itself early in every investigation; read its report.
+   Initial plan: get_overview may include documented_plan, the utility's drawing with its date. It may be
+   current, old or wrong; the planning engineer's brief says how far to trust it. Use it to choose where to
+   look, never as proof: confirm with experiments what matters.
 4. Interpret: watch for anomalies (a meter that never responds may be faulty; missing data; rejected
    experiments) and spend the rest of the budget on the nodes consensus still lists as uncertain.
    The network can change while you investigate: if an experiment result carries field_change,

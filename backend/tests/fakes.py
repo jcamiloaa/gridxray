@@ -39,6 +39,10 @@ class ScriptedClient:
         if model == settings.wonder_model:
             self.wonder_calls += 1
             return SimpleNamespace(id="w", output=[], output_text="Perturb the deepest node.", usage=None)
+        if (kw.get("instructions") or "").startswith("You are GridXray's planning engineer"):  # the planning agent answers with its plan
+            self.planner_calls = getattr(self, "planner_calls", 0) + 1
+            return SimpleNamespace(id="p", output=[], usage=None, output_text=json.dumps(
+                {"trust_in_plan": 0.8, "budget": 6, "priorities": [], "strategy": "test deep nodes", "reasoning": "ok"}))
         self.turn += 1
         tb_names = {n.id: n.name for n in self.s.observable().nodes}
         deep = tb_names[self.s.node_ids[-1]]

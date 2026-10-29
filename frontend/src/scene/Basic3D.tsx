@@ -34,6 +34,8 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
   }
   if (!overlay?.incidents?.length) incidents.current.clear()
   // the control center and the last experiment's signals, read by the render loop
+  const planRef = useRef<Overlay['plan']>(undefined)
+  planRef.current = overlay?.plan
   const sig = useRef<{ hub?: number; focus?: Overlay['focus']; t0: number; label: string }>({ t0: 0, label: '' })
   if (sig.current.focus?.id !== overlay?.focus?.id || sig.current.focus?.node !== overlay?.focus?.node) sig.current.t0 = performance.now()
   sig.current = { ...sig.current, hub: overlay?.hub, focus: overlay?.focus, label: t('Control center') }
@@ -255,6 +257,18 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
         }
       }
 
+      if (planRef.current) { // the utility's initial plan, dashed purple
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = 'rgba(124, 77, 219, .85)'; ctx.lineWidth = 2
+        for (const [c2, p2] of planRef.current) {
+          const a = scene.pos.get(p2)
+          const b2 = scene.pos.get(c2)
+          if (!a || !b2) continue
+          ctx.beginPath()
+          route(a, b2).forEach(([x, z], i) => { const [px, py] = project([x, 1.2, z]); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py) })
+          ctx.stroke()
+        }
+        ctx.setLineDash([])
+      }
       const sg = sig.current
       const sub = sg.hub !== undefined ? scene.pos.get(sg.hub) : undefined
       if (sub) {
