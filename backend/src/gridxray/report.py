@@ -36,7 +36,9 @@ T = {
         "plan_kinds": {"current": "up to date", "old": "old", "errors": "with errors"}, "drawn": "drawn on", "today": "today",
         "age": "age", "years": "years", "plan_acc": "Plan against the real network", "ai_acc": "GridXray's result",
         "trust": "Planner's trust in the plan", "budget_by": "Budget", "auto": "decided by the planning agent (autonomous)",
-        "fixed": "set by the user", "not_on_plan": "substations not on the plan", "aside": "set aside: the network changed afterwards",
+        "fixed": "set by the user", "not_on_plan": "substations not on the plan",
+        "blind": "The AI was not told what kind of plan this is (up to date, old or with errors): it received only the drawing, the date it was drawn and today's date, and had to judge it from the evidence.",
+        "chosen": "Chosen for this test", "aside": "set aside: the network changed afterwards",
         "kinds": {"tie": "tie", "sectionalizer": "sectionalizer", "recloser": "recloser", "fuse": "fuse"},
     },
     "es": {
@@ -68,7 +70,9 @@ T = {
         "plan_kinds": {"current": "actualizado", "old": "antiguo", "errors": "con errores"}, "drawn": "dibujado el", "today": "hoy",
         "age": "antigüedad", "years": "años", "plan_acc": "Plano contra la red real", "ai_acc": "Resultado de GridXray",
         "trust": "Confianza del planificador en el plano", "budget_by": "Presupuesto", "auto": "decidido por el agente planificador (autónomo)",
-        "fixed": "fijado por el usuario", "not_on_plan": "subestaciones que no están en el plano", "aside": "descartado: la red cambió después",
+        "fixed": "fijado por el usuario", "not_on_plan": "subestaciones que no están en el plano",
+        "blind": "A la IA no se le dijo qué tipo de plano era (actualizado, antiguo o con errores): recibió solo el dibujo, la fecha en que se dibujó y la fecha de hoy, y tuvo que juzgarlo con la evidencia.",
+        "chosen": "Elegido para esta prueba", "aside": "descartado: la red cambió después",
         "kinds": {"tie": "enlace", "sectionalizer": "seccionador", "recloser": "reconectador", "fuse": "fusible"},
     },
 }
@@ -190,7 +194,8 @@ def plan_html(review: dict | None, s, g: dict | None, t: dict) -> str:
 
         truth = true_parent(s)
         correct = sum(1 for x in p["edges"] if truth.get(x["child"]) == x["parent"])
-        out.append(f"<div class='kv'><div><b>{e(t['plan_kinds'].get(p['kind'], p['kind']))}</b><span>{t['plan']}</span></div>"
+        out.append(f"<p class='note'><b>{t['blind']}</b></p>")
+        out.append(f"<div class='kv'><div><b>{e(t['plan_kinds'].get(p['kind'], p['kind']))}</b><span>{t['chosen']}</span></div>"
                    f"<div><b>{e(p['drawn_on'])}</b><span>{t['drawn']} · {t['today']} {e(p['today'])}</span></div>"
                    f"<div><b>{p['age_years']} {t['years']}</b><span>{t['age']}</span></div>"
                    f"<div><b>{correct}/{len(truth)}</b><span>{t['plan_acc']}</span></div>"

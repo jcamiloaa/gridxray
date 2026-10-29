@@ -19,6 +19,23 @@ export function AiInputDialog({ events, onClose }: { events: RunEvent[]; onClose
           <button className="btn-ghost" onClick={onClose} aria-label={t('Close')}>✕</button>
         </div>
         <p className="muted">{t('ai_input.intro')}</p>
+        {(() => {
+          const pr = events.find((e) => e.kind === 'plan_review')
+          const plan = pr?.plan as { kind: string; drawn_on: string; age_years: number; edges: unknown[] } | null | undefined
+          if (!pr) return null
+          return (
+            <div className="ai-input__plan">
+              {plan ? (
+                <p><b>{t('Initial plan')}:</b> {t('plan.blind').split('{n}').join(String(plan.edges.length)).split('{date}').join(plan.drawn_on)
+                  .split('{age}').join(String(plan.age_years))} <b>{t('plan.blind.kind').split('{kind}').join(t(`plan.${plan.kind}`))}</b></p>
+              ) : <p>{t('No initial plan: the investigation starts from the meters alone.')}</p>}
+              <details>
+                <summary>{t('What the planning agent received')}</summary>
+                <pre>{json(pr.planner_input)}</pre>
+              </details>
+            </div>
+          )
+        })()}
         {sealed && (
           <>
             <details open>

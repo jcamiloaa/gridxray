@@ -462,6 +462,7 @@ class Investigator:
             tb.engine.budget = decision["budget"] or fallback_budget(n, metered, tb.plan_trust)
         names = {c: tb.name[c] for c in tb.name}
         self.emit("plan_review", autonomous=self.autonomous, budget=tb.engine.budget, decision=decision, checks=checks,
+                  planner_input=dossier,  # exactly what the planning agent saw: the drawing and its dates, never its kind
                   plan=None if plan is None else {
                       "kind": plan.kind, "drawn_on": plan.drawn_on, "today": str(tb.plan_today),
                       "age_years": plan.age_years(tb.plan_today),

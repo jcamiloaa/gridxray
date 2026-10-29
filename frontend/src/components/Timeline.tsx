@@ -113,9 +113,13 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
                 {e.rationale ? <Markdown text={String(e.rationale)} /> : null}
               </div></li>
             )
-          case 'started':
+          case 'started': {
+            const plan = events.find((x) => x.kind === 'plan_review')?.plan as { drawn_on: string; edges: unknown[] } | null | undefined
             return <li key={i} className="tl tl--sys"><span className="tl__icon">▶</span><div><b>{t('Investigation started')}</b>
-              <p>{String(e.nodes)} {t('secondary substations')} · {t('budget')} {String(e.budget)} {t('experiments')}</p></div></li>
+              <p>{String(e.nodes)} {t('secondary substations')} · {t('budget')} {String(e.budget)} {t('experiments')}</p>
+              {plan && <p className="tl__blind">{t('plan.given').split('{date}').join(plan.drawn_on).split('{n}').join(String(plan.edges.length))}</p>}
+            </div></li>
+          }
           case 'message':
             return <li key={i} className="tl tl--msg"><span className="tl__icon tl__icon--spark">S</span><div><Markdown text={String(e.text)} /></div></li>
           case 'reasoning':
@@ -154,6 +158,7 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
             return (
               <li key={i} className="tl tl--plan"><span className="tl__icon tl__icon--planner">P</span><div>
                 <b>{t('Planning agent · initial plan reviewed')}</b>
+                {p && <p className="tl__blind">{t('You chose')}: <b>{t(`plan.${p.kind}`)}</b> · {t('plan.blind.short')}</p>}
                 {p ? (
                   <p>{t('Plan drawn on')} <b>{p.drawn_on}</b> ({p.age_years} {t('years')} · {t('today')} {p.today}) · {p.edges.length} {t('connections')}
                     {p.missing.length ? ` · ${p.missing.length} ${t('substations not on the plan')}` : ''}</p>

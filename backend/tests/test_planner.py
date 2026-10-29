@@ -55,3 +55,27 @@ def test_wrong_and_old_plans_always_differ_even_on_tiny_networks():
         for kind in ("errors", "old"):
             acc = plan_accuracy(s, make_plan(s, kind, today=TODAY))
             assert acc["correct"] < acc["total"]  # a plan "with errors" is never accidentally right
+
+
+def test_the_ai_is_never_told_what_kind_of_plan_it_has():
+    """The agents get the drawing and its dates; whether it is current, old or wrong they must find out."""
+    s = generate_scenario(Complexity.EASY, 1)
+    for kind in ("current", "old", "errors"):
+        events = []
+        client = ScriptedClient(s)
+        seen: list[str] = []
+        original = client.respond
+
+        def spy(model, input, seen=seen, original=original, **kw):
+            seen.append(str(input) + str(kw.get("instructions", "")))
+            return original(model, input, **kw)
+
+        client.respond = spy
+        inv = Investigator(s, client=client, on_event=lambda e, events=events: events.append(e.to_dict()),
+                           plan=make_plan(s, kind, today=TODAY), autonomous=True, today=TODAY)
+        inv.investigate()
+        review = next(e for e in events if e["kind"] == "plan_review")
+        assert "kind" not in review["planner_input"]["plan"]
+        text = " ".join(seen) + str(inv.run.toolbox.t_get_overview())
+        for word in ("with errors", "\"errors\"", "\"old\"", "\"current\"", "kind_"):
+            assert word not in text, (kind, word)
