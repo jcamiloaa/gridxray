@@ -239,7 +239,6 @@ export function GridScene({
 
   const pos = useMemo(() => layout(model), [model])
   const roots = useMemo(() => new Set(model.substations.map((s) => s.id)), [model])
-  const labelsOn = showLabels && model.nodes.length <= 40
   const mountOf = useMemo(() => new Map(model.nodes.map((n) => [n.id, n.mount])), [model])
   /** Street path between two equipment items, with the ends at their cable anchors. */
   const pathOf = useCallback((from: number, to: number, underground = false): V3[] => {
@@ -353,13 +352,13 @@ export function GridScene({
       }
     }
     for (const n of model.nodes) {
-      if (labelsOn || n.id === hovered || n.id === selected) {
+      if (n.id === hovered || n.id === selected) { // the 3D nameplate names every station; the label is for hover
         const [x, z] = pos.get(n.id)!
         pts.push({ key: `n${n.id}`, p: [x, 2.1, z] })
       }
     }
     return pts
-  }, [callouts, calloutAnchor, showLabels, model, pos, labelsOn, hovered, selected, tags, layers])
+  }, [callouts, calloutAnchor, showLabels, model, pos, hovered, selected, tags, layers])
   const labelKeys = useMemo(() => new Set(labelPoints.map((l) => l.key)), [labelPoints])
 
   return (
@@ -403,7 +402,7 @@ export function GridScene({
               ? <CapacitorBank key={d.id} position={pos.get(d.node)!} />
               : <SolarFarm key={d.id} position={pos.get(d.node)!} width={PX - KOFF - 1.6} depth={PZ - KOFF - 1.5} />))}
             {model.nodes.map((n) => (
-              <Kiosk key={n.id} position={pos.get(n.id)!} mount={n.mount} metered={n.metered} vm={n.vm} selected={selected === n.id}
+              <Kiosk key={n.id} name={n.name} position={pos.get(n.id)!} mount={n.mount} metered={n.metered} vm={n.vm} selected={selected === n.id}
                 onHover={(on) => setHovered((h) => (on ? n.id : h === n.id ? null : h))}
                 onSelect={onSelect ? () => onSelect(n.id) : undefined} />
             ))}

@@ -85,9 +85,63 @@ export function Substation({ position, flow }: { position: [number, number]; flo
   )
 }
 
+const plates = new Map<string, THREE.CanvasTexture>()
+
+/** Enamel nameplate texture (white plate, dark rim, bold tag), drawn once per name. */
+function plateTexture(name: string): THREE.CanvasTexture {
+  let tex = plates.get(name)
+  if (tex) return tex
+  const c = document.createElement('canvas')
+  c.width = 320
+  c.height = 96
+  const g = c.getContext('2d')!
+  g.fillStyle = '#1f2a37'
+  g.beginPath(); g.roundRect(0, 0, 320, 96, 14); g.fill()
+  g.fillStyle = '#f7f9fb'
+  g.beginPath(); g.roundRect(7, 7, 306, 82, 9); g.fill()
+  for (const [x, y] of [[20, 20], [300, 20], [20, 76], [300, 76]]) { // rivets
+    g.fillStyle = '#9aa5b1'; g.beginPath(); g.arc(x, y, 5, 0, 7); g.fill()
+  }
+  g.fillStyle = '#1f2a37'
+  g.font = '800 58px Inter, system-ui, sans-serif'
+  g.textAlign = 'center'
+  g.textBaseline = 'middle'
+  g.fillText(name, 160, 51)
+  tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 8
+  plates.set(name, tex)
+  return tex
+}
+
+/** The station's nameplate, as a utility would mount it: on the kiosk roof edge or on the pole. */
+function Nameplate({ name, mount }: { name: string; mount: 'kiosk' | 'pole' }) {
+  const map = useMemo(() => plateTexture(name), [name])
+  const [w, h] = mount === 'pole' ? [0.62, 0.19] : [1.2, 0.36]
+  const at: V3 = mount === 'pole' ? [0, 1.0, 0.1] : [0, 1.42, 0.5]
+  return (
+    <group position={at}>
+      {mount === 'kiosk' && [-0.45, 0.45].map((x) => (
+        <mesh key={x} position={[x, -0.16, -0.02]}>
+          <boxGeometry args={[0.04, 0.2, 0.04]} />
+          <meshStandardMaterial color="#5d6875" />
+        </mesh>
+      ))}
+      <mesh position={[0, 0, -0.012]}>
+        <boxGeometry args={[w + 0.03, h + 0.03, 0.02]} />
+        <meshStandardMaterial color="#1f2a37" />
+      </mesh>
+      <mesh>
+        <planeGeometry args={[w, h]} />
+        <meshStandardMaterial map={map} roughness={0.5} />
+      </mesh>
+    </group>
+  )
+}
+
 /** MV/LV secondary substation (kiosk) with a smart-meter status light. */
-export function Kiosk({ position, mount = 'kiosk', metered, vm, selected, onHover, onSelect }: {
-  position: [number, number]; mount?: 'kiosk' | 'pole'; metered: boolean; vm: number | null
+export function Kiosk({ position, mount = 'kiosk', metered, vm, selected, onHover, onSelect, name }: {
+  position: [number, number]; mount?: 'kiosk' | 'pole'; metered: boolean; vm: number | null; name?: string
   selected: boolean; onHover: (on: boolean) => void; onSelect?: () => void
 }) {
   const [x, z] = position
@@ -120,6 +174,7 @@ export function Kiosk({ position, mount = 'kiosk', metered, vm, selected, onHove
           <meshBasicMaterial color={palette.accent} transparent opacity={selected ? 1 : 0.5} />
         </mesh>
       )}
+      {name && <Nameplate name={name} mount={mount} />}
       {mount === 'pole' ? (
         <>
           <Model parts={model('poleTransformer')} position={[0, 0, 0]} />
