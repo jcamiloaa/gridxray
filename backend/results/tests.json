@@ -1,86 +1,140 @@
 {
- "total": 45,
- "passed": 45,
+ "total": 59,
+ "passed": 59,
  "failed": 0,
- "seconds": 36.7,
+ "seconds": 67.7,
  "tests": [
   {
    "name": "test_scenarios_require_login",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 0.07
+   "seconds": 0.14
   },
   {
    "name": "test_demo_button_signs_in",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 2.87
+   "seconds": 4.73
   },
   {
    "name": "test_password_login",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 0.16
+   "seconds": 0.26
   },
   {
    "name": "test_logout_ends_session",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 0.06
+   "seconds": 0.09
   },
   {
    "name": "test_tampered_token_rejected",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 0.05
+   "seconds": 0.09
   },
   {
    "name": "test_showcase_is_public_and_includes_truth",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 0.32
+   "seconds": 0.51
   },
   {
    "name": "test_truth_requires_login_and_matches_seed",
    "area": "Authentication",
    "outcome": "passed",
-   "seconds": 0.3
+   "seconds": 0.57
+  },
+  {
+   "name": "test_meta_key_saved_in_the_app_wins_over_env_and_is_never_returned",
+   "area": "Authentication",
+   "outcome": "passed",
+   "seconds": 0.12
+  },
+  {
+   "name": "test_design_validation_explains_problems",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 0.0
+  },
+  {
+   "name": "test_designed_network_builds_and_round_trips",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 1.03
+  },
+  {
+   "name": "test_intervention_refuses_loops_and_is_noticed_by_the_agent",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 1.02
+  },
+  {
+   "name": "test_meter_offline_is_noticed",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 0.61
+  },
+  {
+   "name": "test_grid_api_and_investigation_on_a_designed_network",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 4.05
+  },
+  {
+   "name": "test_live_intervention_api",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 3.46
+  },
+  {
+   "name": "test_small_network_change_is_noticed",
+   "area": "Designed networks and live intervention",
+   "outcome": "passed",
+   "seconds": 0.74
   },
   {
    "name": "test_requires_login",
    "area": "Live investigations API",
    "outcome": "passed",
-   "seconds": 0.06
+   "seconds": 0.15
   },
   {
    "name": "test_run_streams_events_and_scores",
    "area": "Live investigations API",
    "outcome": "passed",
-   "seconds": 1.82
+   "seconds": 4.37
   },
   {
    "name": "test_list_usage_and_resume_flow",
    "area": "Live investigations API",
    "outcome": "passed",
-   "seconds": 1.62
+   "seconds": 2.64
   },
   {
    "name": "test_demo_sessions_do_not_see_each_others_runs",
    "area": "Live investigations API",
    "outcome": "passed",
-   "seconds": 3.64
+   "seconds": 4.18
   },
   {
    "name": "test_runs_survive_sign_out_in_the_same_browser",
    "area": "Live investigations API",
    "outcome": "passed",
-   "seconds": 1.85
+   "seconds": 1.97
   },
   {
    "name": "test_report_and_evidence",
    "area": "Live investigations API",
    "outcome": "passed",
-   "seconds": 2.11
+   "seconds": 2.05
+  },
+  {
+   "name": "test_stop_is_immediate_even_while_the_model_is_thinking",
+   "area": "Live investigations API",
+   "outcome": "passed",
+   "seconds": 4.17
   },
   {
    "name": "test_synthetic_scenario_is_radial_and_solved[easy]",
@@ -92,43 +146,43 @@
    "name": "test_synthetic_scenario_is_radial_and_solved[medium]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.27
+   "seconds": 0.26
   },
   {
    "name": "test_synthetic_scenario_is_radial_and_solved[hard]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.45
+   "seconds": 0.4
   },
   {
    "name": "test_reference_networks_load[cigre_mv]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.44
+   "seconds": 0.18
   },
   {
    "name": "test_reference_networks_load[mv_oberrhein]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.74
+   "seconds": 0.69
   },
   {
    "name": "test_same_seed_same_scenario",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.81
+   "seconds": 0.83
   },
   {
    "name": "test_observable_view_hides_topology",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.42
+   "seconds": 0.62
   },
   {
    "name": "test_hard_records_are_outdated",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.42
+   "seconds": 0.4
   },
   {
    "name": "test_easy_has_clean_meters_and_no_ties",
@@ -140,7 +194,7 @@
    "name": "test_hard_has_four_feeders",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.4
+   "seconds": 0.41
   },
   {
    "name": "test_load_profile_changes_voltages",
@@ -158,55 +212,55 @@
    "name": "test_protection_and_devices_present_in_hard",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.41
+   "seconds": 0.4
   },
   {
    "name": "test_pv_follows_the_sun",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.49
+   "seconds": 0.46
   },
   {
    "name": "test_every_node_has_its_own_city_block[easy]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.2
+   "seconds": 0.18
   },
   {
    "name": "test_every_node_has_its_own_city_block[medium]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.27
+   "seconds": 0.25
   },
   {
    "name": "test_every_node_has_its_own_city_block[hard]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.43
+   "seconds": 0.41
   },
   {
    "name": "test_line_lengths_follow_street_distance",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.33
+   "seconds": 0.25
   },
   {
    "name": "test_feeder_sections_connect_neighbouring_blocks",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.46
+   "seconds": 0.4
   },
   {
    "name": "test_reference_networks_get_locations[cigre_mv]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.37
+   "seconds": 0.18
   },
   {
    "name": "test_reference_networks_get_locations[mv_oberrhein]",
    "area": "Virtual lab",
    "outcome": "passed",
-   "seconds": 0.5
+   "seconds": 0.51
   },
   {
    "name": "test_edge_metrics_is_orientation_agnostic",
@@ -215,10 +269,16 @@
    "seconds": 0.0
   },
   {
+   "name": "test_totals_include_per_image_charges",
+   "area": "Usage and costs",
+   "outcome": "passed",
+   "seconds": 0.0
+  },
+  {
    "name": "test_perturbation_is_temporary_and_costs_budget",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 0.26
+   "seconds": 0.25
   },
   {
    "name": "test_limits_and_budget_reject_for_free",
@@ -230,49 +290,73 @@
    "name": "test_exhaustive_recovers_easy_network_exactly",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 1.29
+   "seconds": 1.3
   },
   {
    "name": "test_experiments_beat_geography_alone",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 2.82
+   "seconds": 3.08
   },
   {
    "name": "test_ancestor_test_matches_truth",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 1.26
+   "seconds": 1.32
   },
   {
    "name": "test_toolbox_never_exposes_the_truth",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 0.39
+   "seconds": 0.4
   },
   {
    "name": "test_investigator_runs_the_tool_loop_and_wonder_review",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 1.33
+   "seconds": 1.45
   },
   {
    "name": "test_investigator_recovers_when_the_server_drops_the_conversation",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 1.32
+   "seconds": 1.43
   },
   {
    "name": "test_restore_rebuilds_experiments_without_rerunning_them",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
-   "seconds": 1.71
+   "seconds": 1.61
   },
   {
    "name": "test_usage_is_priced_per_model",
    "area": "Experiments, tools and agent",
    "outcome": "passed",
    "seconds": 0.0
+  },
+  {
+   "name": "test_batched_experiments_and_background_meta_inference",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 1.49
+  },
+  {
+   "name": "test_batch_fills_a_missing_load_size",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 1.26
+  },
+  {
+   "name": "test_rejection_explains_the_limit_and_a_safe_size_works",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 0.34
+  },
+  {
+   "name": "test_every_investigation_sends_a_field_crew",
+   "area": "Experiments, tools and agent",
+   "outcome": "passed",
+   "seconds": 3.25
   }
  ]
 }

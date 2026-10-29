@@ -706,3 +706,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .room__logic li { display: flex; gap: 6px; }
 .room__logic li:last-child { font-weight: 600; color: var(--ink); }
 .room-open { position: absolute; z-index: 7; left: 14px; bottom: 14px; }
+
+.room__title, .room-open { display: inline-flex; align-items: center; gap: 6px; }
+.room__who { display: inline-flex; align-items: center; gap: 5px; }
+.room__ico { display: inline-flex; flex: none; margin-top: 1px; }
