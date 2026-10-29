@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import * as THREE from 'three'
 import { CrewLayer } from './CrewLayer'
 import { IncidentLayer } from './IncidentLayer'
+import { SignalLayer } from './SignalLayer'
 import { route, type Vec2 } from './layout'
 import type { DiffKind, Overlay } from './model'
 
@@ -105,6 +106,7 @@ export function HypothesisLayer({ overlay, pos }: { overlay: Overlay; pos: Map<n
           })}
         </>
       )}
+      <SignalLayer overlay={overlay} pos={pos} />
       {overlay.incidents && <IncidentLayer incidents={overlay.incidents} pos={pos} />}
       {overlay.crew && <CrewLayer key={overlay.crew.visit} crew={overlay.crew} pos={pos} />}
     </group>

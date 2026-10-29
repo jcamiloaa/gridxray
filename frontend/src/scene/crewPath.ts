@@ -29,3 +29,6 @@ export function along(path: Vec2[], dist: number): { at: Vec2; heading: number; 
   const [bx, bz] = path[path.length - 1]
   return { at: [bx, bz], heading: Math.atan2(bx - ax, bz - az), done: true }
 }
+
+/** Where the control center stands, next to the substation the investigation starts from. */
+export const hubAt = (sub: Vec2): Vec2 => [sub[0] + 0.5, sub[1] + 7.5]

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { money, pct } from '../money'
 import { createScenario, getActiveInvestigation, getTruth, grids, sourceOf, type Design, type GridSummary, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
+import { ControlRoom } from '../components/ControlRoom'
 import { FieldPanel } from '../components/FieldPanel'
 import { GridEditor } from '../components/GridEditor'
 import { Brand } from '../components/Brand'
@@ -361,6 +362,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
             <>
               <SceneView model={model} selected={selected} onSelect={setSelected} showLabels={labels} flow citySeed={scenario?.seed ?? 0}
                 overlay={sceneOverlay}>
+              {run.events.length > 0 && <ControlRoom events={run.events} running={run.status === 'running'} />}
               {run.events.length > 0 && (
                 <div className="ws-overlay ws-timeline card" aria-label={t('Investigation log')} style={{ width: logWidth }}>
                   <div className="ws-timeline__resize" onPointerDown={startResize} role="separator" aria-orientation="vertical"

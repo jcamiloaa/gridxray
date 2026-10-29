@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { useI18n } from '../i18n'
-import { along, SPEED, streetPath } from './crewPath'
+import { along, hubAt, SPEED, streetPath } from './crewPath'
 import type { CalloutSpec } from './GridScene'
 import { layout, route, type Vec2 } from './layout'
 import type { GridModel, Overlay } from './model'
@@ -33,6 +33,10 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
     }
   }
   if (!overlay?.incidents?.length) incidents.current.clear()
+  // the control center and the last experiment's signals, read by the render loop
+  const sig = useRef<{ hub?: number; focus?: Overlay['focus']; t0: number; label: string }>({ t0: 0, label: '' })
+  if (sig.current.focus?.id !== overlay?.focus?.id || sig.current.focus?.node !== overlay?.focus?.node) sig.current.t0 = performance.now()
+  sig.current = { ...sig.current, hub: overlay?.hub, focus: overlay?.focus, label: t('Control center') }
   const c = overlay?.crew
   if (!c) crew.current = null
   else if (crew.current?.c.visit !== c.visit || crew.current.c.stage !== c.stage || crew.current.c.outdated !== c.outdated) {
@@ -248,6 +252,67 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           ctx.fillRect(px - tw / 2, py - 9, tw, 14)
           ctx.fillStyle = palette.ink
           ctx.fillText(n.name, px, py + 2)
+        }
+      }
+
+      const sg = sig.current
+      const sub = sg.hub !== undefined ? scene.pos.get(sg.hub) : undefined
+      if (sub) {
+        const [hx, hz] = hubAt(sub)
+        // control center: a small office block with lit windows and a blinking mast
+        const base: V3[] = [[hx - 1.7, 0, hz - 1.2], [hx + 1.7, 0, hz - 1.2], [hx + 1.7, 0, hz + 1.2], [hx - 1.7, 0, hz + 1.2]]
+        const top = base.map(([a, , c2]): V3 => [a, 2.2, c2])
+        for (const [i, j] of [[3, 2], [1, 2], [0, 1], [0, 3]]) face([base[i], base[j], top[j], top[i]].map(project), i === 3 ? '#dfe4ea' : '#c9d0d8')
+        face(top.map(project), '#4a5563')
+        for (const x of [-1.05, 0, 1.05]) face(([[hx + x - 0.4, 0.8, hz + 1.21], [hx + x + 0.4, 0.8, hz + 1.21], [hx + x + 0.4, 1.7, hz + 1.21], [hx + x - 0.4, 1.7, hz + 1.21]] as V3[]).map(project), '#9fd3ec')
+        const [mx, my] = project([hx + 1.1, 4.6, hz - 0.6])
+        const [mbx, mby] = project([hx + 1.1, 2.2, hz - 0.6])
+        ctx.strokeStyle = '#8b96a3'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(mbx, mby); ctx.lineTo(mx, my); ctx.stroke()
+        ctx.beginPath(); ctx.arc(mx, my, Math.max(3, s * 0.15), 0, 7); ctx.fillStyle = Math.sin(now / 130) > 0 ? '#ff3030' : '#7a2a2a'; ctx.fill()
+        const [lx4, ly4] = project([hx, 0.3, hz + 1.6])
+        ctx.font = '700 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'
+        const w4 = ctx.measureText(sg.label).width + 14
+        ctx.fillStyle = '#1f2a37'; ctx.fillRect(lx4 - w4 / 2, ly4 - 9, w4, 16)
+        ctx.fillStyle = '#fff'; ctx.fillText(sg.label, lx4, ly4 + 3)
+        const f = sg.focus
+        const tgt = f ? scene.pos.get(f.node) : undefined
+        if (f && tgt) {
+          const ph = (((now - sg.t0) / 1000) % 4.5) / 4.5
+          const from: V3 = [hx + 1.1, 4.6, hz - 0.6]
+          const arc = (a: V3, b: V3, k: number): V3 => { // quadratic arc between two points, lifted in the middle
+            const lift = Math.max(a[1], b[1]) + Math.hypot(a[0] - b[0], a[2] - b[2]) * 0.28
+            const m: V3 = [(a[0] + b[0]) / 2, lift, (a[2] + b[2]) / 2]
+            const q = (u: number, v: number, w: number) => (1 - k) ** 2 * u + 2 * (1 - k) * k * v + k * k * w
+            return [q(a[0], m[0], b[0]), q(a[1], m[1], b[1]), q(a[2], m[2], b[2])]
+          }
+          const to: V3 = [tgt[0], 1.8, tgt[1]]
+          ctx.setLineDash([6, 4]); ctx.strokeStyle = 'rgba(242, 107, 29, .7)'; ctx.lineWidth = 1.6; ctx.beginPath()
+          for (let i = 0; i <= 24; i++) { const [px, py] = project(arc(from, to, i / 24)); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py) }
+          ctx.stroke(); ctx.setLineDash([])
+          if (ph < 0.3) { // the order travelling to the substation
+            const [ox, oy] = project(arc(from, to, ph / 0.3))
+            ctx.beginPath(); ctx.arc(ox, oy, Math.max(4, s * 0.28), 0, 7); ctx.fillStyle = '#f26b1d'; ctx.fill()
+          } else if (ph < 0.42) { // the substation reacts
+            const k = (ph - 0.3) / 0.12
+            const [fx, fy] = project([tgt[0], 0.1, tgt[1]])
+            ctx.beginPath(); ctx.ellipse(fx, fy, s * (0.6 + k * 2.5), s * (0.6 + k * 2.5) * 0.6, 0, 0, 7)
+            ctx.strokeStyle = `rgba(242, 107, 29, ${1 - k})`; ctx.lineWidth = 3; ctx.stroke()
+          }
+          const top6 = Object.entries(f.drops).map(([k2, v]) => [Number(k2), v] as const)
+            .filter(([n]) => n !== f.node && scene.pos.has(n)).sort((a, b) => b[1] - a[1]).slice(0, 6)
+          const max = Math.max(1e-9, ...top6.map(([, v]) => v))
+          top6.forEach(([n, v], i) => { // each meter answers back, bigger where the voltage dropped more
+            const p = scene.pos.get(n)!
+            const a: V3 = [p[0], 1.6, p[1]]
+            ctx.strokeStyle = `rgba(14, 110, 140, ${0.15 + (v / max) * 0.35})`; ctx.lineWidth = 0.6 + (v / max) * 1.8; ctx.beginPath()
+            for (let j = 0; j <= 20; j++) { const [px, py] = project(arc(a, from, j / 20)); if (j) ctx.lineTo(px, py); else ctx.moveTo(px, py) }
+            ctx.stroke()
+            const k = (ph - 0.42 - i * 0.03) / 0.4
+            if (k >= 0 && k <= 1) {
+              const [bx2, by2] = project(arc(a, from, k))
+              ctx.beginPath(); ctx.arc(bx2, by2, Math.max(2.5, s * (0.08 + (v / max) * 0.14)), 0, 7); ctx.fillStyle = '#0e6e8c'; ctx.fill()
+            }
+          })
         }
       }
 

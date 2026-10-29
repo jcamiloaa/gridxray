@@ -113,7 +113,8 @@ export const fromShowcase = (s: ObservableScenario & { truth: Truth }) => fromTr
 export interface Overlay {
   edges: { child: number; parent: number; status: EdgeStatus; basis?: 'measured' | 'inferred' | 'proposed' | 'uncertain' }[]
   missed?: [number, number][] // true connections the AI did not find (shown after reveal)
-  focus?: { node: number; drops: Record<number, number> } // last load experiment
+  focus?: { id?: number; node: number; drops: Record<number, number> } // last load experiment
+  hub?: number // the substation next to the control center, where signals start
   // field crew on its way to / working at a site ("dispatch crew")
   // what you changed in the field during the run, shown where it happened
   incidents?: { id: string; node: number; kind: 'meter' | 'switch'; label: string; state?: 'open' | 'closed' }[]

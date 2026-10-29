@@ -55,7 +55,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
       const args = e.args as { kind: string; node?: string }
       const drops = (e.drop_pu_per_mw ?? {}) as Record<string, number>
       if (args.kind === 'perturb_load' && args.node && idOf.has(args.node)) {
-        setFocus({ node: idOf.get(args.node)!, drops: Object.fromEntries(Object.entries(drops).map(([k, v]) => [idOf.get(k) ?? -1, v])) })
+        setFocus({ id: Number(e.experiment ?? Date.now()), node: idOf.get(args.node)!, drops: Object.fromEntries(Object.entries(drops).map(([k, v]) => [idOf.get(k) ?? -1, v])) })
       }
     }
     // the field crew drives to the site and works there while the photo, SAM and the reading run
@@ -151,7 +151,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   }, [generated, events, runId])
 
   const overlay = useMemo<Overlay | undefined>(() => {
-    if (!edges.length) return crew || incidents.length ? { edges: [], crew, incidents } : undefined
+    if (!edges.length) return crew || incidents.length || focus ? { edges: [], crew, incidents, focus, hub: rootId } : undefined
     if (truthEdges) {
       const real = new Set(truthEdges.map(([a, b]) => pairKey(a, b)))
       const proposed = new Set(edges.map((e) => pairKey(e.child, e.parent)))
@@ -161,8 +161,8 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
         incidents,
       }
     }
-    return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus, crew, incidents }
-  }, [edges, focus, crew, incidents, truthEdges])
+    return { edges: edges.map((e) => ({ child: e.child, parent: e.parent, status: e.basis })), focus, crew, incidents, hub: rootId }
+  }, [edges, focus, crew, incidents, truthEdges, rootId])
 
   /** Found vs real, node by node: the AI's proposed parent against the true one. */
   const comparison = useMemo(() => {
