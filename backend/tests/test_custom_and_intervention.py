@@ -134,6 +134,9 @@ def test_live_intervention_api(client, monkeypatch):
     truth = client.get(f"/investigations/{run_id}/truth").json()
     assert truth["interventions"] == 1 and sorted(map(tuple, truth["truth"]["edges"])) == sorted(s.true_edges)
     assert sorted(map(tuple, truth["initial_edges"])) != sorted(s.true_edges)
+    html = client.get(f"/investigations/{run_id}/report", params={"lang": "es"}).text
+    assert "Incidencias en campo durante la investigación" in html and f"SW-{pair[0]}" in html
+    assert "Verificado: la red real coincide con el sello." in html  # the seal still covers the start
 
 
 def test_small_network_change_is_noticed():

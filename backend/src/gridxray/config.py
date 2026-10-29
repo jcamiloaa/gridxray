@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     experiment_budget: int = 20
     max_agent_steps: int = 60
     max_wonder_reviews: int = 3
+    meta_inference_enabled: bool = True  # Wonder's own topology inference as an ensemble vote (off in the Spark-only ablation)
 
     # Postgres. In Docker the api service overrides the host to `postgres`.
     database_url: str = "postgresql+psycopg://gridxray:gridxray-local@localhost:5433/gridxray"

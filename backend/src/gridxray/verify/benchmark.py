@@ -15,7 +15,8 @@ from gridxray.verify.score import score
 
 
 def run_one(level: Complexity, seed: int, budget: int, wonder: bool = True) -> dict:
-    cfg = settings if wonder else settings.model_copy(update={"max_wonder_reviews": 0})
+    # Spark-only ablation: no Wonder reviews and no Wonder vote in the ensemble
+    cfg = settings if wonder else settings.model_copy(update={"max_wonder_reviews": 0, "meta_inference_enabled": False})
     s = generate_scenario(level, seed)
     t0 = time.perf_counter()
     events: list[dict] = []

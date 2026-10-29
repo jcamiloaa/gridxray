@@ -33,6 +33,17 @@ GUARANTEES = [
     {"claim": "Investigations survive restarts",
      "how": "Events are stored as they happen; after a restart the run resumes from its log without repeating experiments.",
      "tests": ["test_restore_rebuilds_experiments_without_rerunning_them", "test_investigator_recovers_when_the_server_drops_the_conversation"]},
+    {"claim": "Changes in the field are noticed, not announced",
+     "how": "During a run you can operate switches or switch meters off. Unsafe operations are refused. The AI gets no "
+            "notice: the experiment engine detects the change from baseline readings and repeated load steps against "
+            "meter noise (no false alarms on unchanged networks), sets older experiments aside, and each change "
+            "publishes a new commitment of the network.",
+     "tests": ["test_intervention_refuses_loops_and_is_noticed_by_the_agent", "test_live_intervention_api",
+               "test_small_network_change_is_noticed"]},
+    {"claim": "Your own network is investigated like any other",
+     "how": "Networks drawn in the editor are validated (every substation supplied, radial operation) and built into the "
+            "same simulator; the AI sees substations and meters, never the wiring you drew.",
+     "tests": ["test_design_validation_explains_problems", "test_grid_api_and_investigation_on_a_designed_network"]},
     {"claim": "Scenarios are physically consistent and reproducible",
      "how": "Seeded generation: same seed, same network. Radial operation, geography-consistent line lengths.",
      "tests": ["test_same_seed_same_scenario", "test_line_lengths_follow_street_distance", "test_synthetic_scenario_is_radial_and_solved"]},
@@ -54,7 +65,8 @@ SCORING = {
 }
 
 AREAS = {"test_lab": "Virtual lab", "test_sim_tools": "Experiments, tools and agent", "test_investigations_api": "Live investigations API",
-         "test_auth": "Authentication", "test_metrics": "Scoring"}
+         "test_auth": "Authentication", "test_metrics": "Scoring",
+         "test_custom_and_intervention": "Designed networks and live intervention", "test_pricing_totals": "Usage and costs"}
 
 
 def run_tests() -> dict:
@@ -99,14 +111,21 @@ def benchmark_summary(rows: list[dict]) -> list[dict]:
                     "correct": correct, "total": total, "accuracy": round(correct / total, 3),
                     "f1": round(sum(g["f1"] for g in gs) / len(gs), 3),
                     "experiments": round(sum(g["experiments"] for g in gs) / len(gs), 1),
-                    "wrong": wrong, "flagged": flagged, "calibration": round(flagged / wrong, 2) if wrong else 1.0})
+                    "wrong": wrong, "flagged": flagged, "calibration": round(flagged / wrong, 2) if wrong else 1.0,
+                    "cost_usd": round(sum(r.get("cost_usd", 0) for r in rows if r["level"] == level and r.get("gridxray")) / len(gs), 3),
+                    "seconds": round(sum(r.get("seconds", 0) for r in rows if r["level"] == level and r.get("gridxray")) / len(gs)),
+                    "reviews": round(sum(r.get("reviews", 0) for r in rows if r["level"] == level and r.get("gridxray")) / len(gs), 1)})
     return out
 
 
 def evidence(live_runs: list[dict] | None = None) -> dict:
     bench = _load("benchmark.json") or []
+    with_wonder, spark_only = _load("ablation_wonder.json"), _load("ablation_spark.json")
+    ablation = ({"with_wonder": benchmark_summary(with_wonder), "spark_only": benchmark_summary(spark_only)}
+                if with_wonder and spark_only else None)
     return {
         "benchmark": {"rows": bench, "summary": benchmark_summary(bench)},
+        "ablation": ablation,
         "tests": _load("tests.json"),
         "guarantees": GUARANTEES,
         "scoring": SCORING,

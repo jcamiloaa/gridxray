@@ -24,6 +24,16 @@ T = {
         "crews_text": "Photo drawn by Muse Image from what is physically at the site, segmented by SAM 3.1 and read by Muse Spark. The investigator only received the reading.", "how_text": "An independent checker with no AI compares every proposed connection with "
                "the simulator's ground truth. The AI never saw the true topology: only equipment, records, meter readings "
                "and the results of its own experiments.", "none": "None", "rejected": "rejected",
+        "incidents": "Field incidents during the investigation", "incidents_none": "No incidents: the network did not change while the AI investigated.",
+        "incidents_text": "Faults and switching operations applied to the real network while the AI was working. The AI was never told: it had to notice them in its own readings.",
+        "inc_switch": "Switching operation", "inc_meter": "Meter fault", "now": "now", "open": "open", "closed": "closed",
+        "meter_off": "meter offline (stopped reporting)", "detected": "Detected by the AI", "not_detected": "Not detected by the AI",
+        "at": "at", "exp_n": "on experiment {n} after the change", "set_aside": "earlier experiments set aside",
+        "shifts": "Largest voltage shifts", "how_seen": {"baseline": "the baseline readings moved", "repeated experiment": "a repeated experiment answered differently"},
+        "inc_score": "The result is scored against the network as it ended; the original seal still verifies the network at the start.",
+        "new_seal": "New commitment published at the change", "incidents_kv": "Field incidents", "detected_kv": "Detected by the AI",
+        "designed": "designed network", "aside": "set aside: the network changed afterwards",
+        "kinds": {"tie": "tie", "sectionalizer": "sectionalizer", "recloser": "recloser", "fuse": "fuse"},
     },
     "es": {
         "title": "Informe de investigación GridXray", "scenario": "Escenario", "network": "Red", "seed": "Semilla",
@@ -42,6 +52,16 @@ T = {
         "crews_text": "Foto generada por Muse Image a partir de lo que hay físicamente en el sitio, segmentada por SAM 3.1 y leída por Muse Spark. El investigador solo recibió la lectura.", "how_text": "Un verificador independiente, sin IA, compara cada conexión propuesta con la verdad "
                "del simulador. La IA nunca vio la topología real: solo equipos, registros, lecturas de medidores y los "
                "resultados de sus propios experimentos.", "none": "Ninguna", "rejected": "rechazado",
+        "incidents": "Incidencias en campo durante la investigación", "incidents_none": "Sin incidencias: la red no cambió mientras la IA investigaba.",
+        "incidents_text": "Fallas y maniobras aplicadas a la red real mientras la IA trabajaba. La IA nunca fue avisada: tuvo que notarlas en sus propias lecturas.",
+        "inc_switch": "Maniobra", "inc_meter": "Falla de medidor", "now": "ahora", "open": "abierto", "closed": "cerrado",
+        "meter_off": "medidor fuera de servicio (dejó de reportar)", "detected": "Detectada por la IA", "not_detected": "No detectada por la IA",
+        "at": "a los", "exp_n": "en el experimento {n} después del cambio", "set_aside": "experimentos anteriores descartados",
+        "shifts": "Mayores cambios de tensión", "how_seen": {"baseline": "las lecturas base se movieron", "repeated experiment": "un experimento repetido respondió distinto"},
+        "inc_score": "El resultado se evalúa contra la red como quedó al final; el sello original sigue verificando la red del inicio.",
+        "new_seal": "Nueva huella publicada en el cambio", "incidents_kv": "Incidencias en campo", "detected_kv": "Detectadas por la IA",
+        "designed": "red diseñada", "aside": "descartado: la red cambió después",
+        "kinds": {"tie": "enlace", "sectionalizer": "seccionador", "recloser": "reconectador", "fuse": "fusible"},
     },
 }
 
@@ -88,13 +108,66 @@ h1{font-size:26px;margin:0 0 4px}h2{font-size:17px;margin:28px 0 10px;border-bot
 table{width:100%;border-collapse:collapse;font-size:13px}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #e3e8ee;vertical-align:top}
 th{background:#f0f3f6;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5d6b7a}
 .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kv div{background:#f0f3f6;border-radius:8px;padding:8px 10px}
-.photo{width:100%;max-width:560px;border-radius:8px;display:block;margin:6px 0}.crew{margin:10px 0}
+.incident{border-left:4px solid #e9a23b;background:#fffaf2;border-radius:0 8px 8px 0;padding:8px 12px;margin:10px 0}
+.incident ul{margin:4px 0 6px;padding-left:18px}.tag{display:inline-block;font-size:12px;font-weight:700;color:#fff;border-radius:999px;padding:1px 8px;margin-right:4px}
+.tag.sw{background:#1f6fb2}.tag.fault{background:#b03030}.small{font-size:12px;color:#5d6b7a}.photo{width:100%;max-width:560px;border-radius:8px;display:block;margin:6px 0}.crew{margin:10px 0}
 .kv b{display:block;font-size:18px}.kv span{font-size:11px;color:#5d6b7a}
 .us td{font-weight:800;color:#0e6e8c}.ok{color:#0f7a53;font-weight:700}.bad{color:#c62828;font-weight:700}
 .note{background:#f0f3f6;border-radius:8px;padding:10px 12px;font-size:13px}.big{font-size:40px;font-weight:800;color:#0e6e8c}
 code{background:#f0f3f6;padding:2px 6px;border-radius:4px}.print{position:fixed;top:12px;right:12px}
 @media print{body{background:#fff}main{padding:0}.print{display:none}}
 """
+
+
+def _clock(sec: float) -> str:
+    sec = int(sec or 0)
+    return f"{sec // 60}:{sec % 60:02d}"
+
+
+def network_name(source: str, t: dict) -> str:
+    """A designed network shows its own name, not its database id."""
+    if not source.startswith("custom:"):
+        return source
+    from gridxray.store.db import SessionLocal
+    from gridxray.store.models import CustomGrid
+
+    with SessionLocal() as db:
+        row = db.get(CustomGrid, source.split(":", 1)[1])
+    return f"{row.name} ({t['designed']})" if row else t["designed"]
+
+
+def incidents_html(events: list[dict], t: dict) -> tuple[str, int, int]:
+    """Faults and switching operations applied during the run, and whether the AI noticed each one."""
+    e = escape
+    ivs = [(i, ev) for i, ev in enumerate(events) if ev.get("kind") == "intervention"]
+    if not ivs:
+        return f"<h2>{t['incidents']}</h2><p class='note'>{t['incidents_none']}</p>", 0, 0
+    out = [f"<h2>{t['incidents']}</h2><p class='note'>{t['incidents_text']}</p>"]
+    detected = 0
+    for n, (i, iv) in enumerate(ivs):
+        end = ivs[n + 1][0] if n + 1 < len(ivs) else len(events)
+        later = events[i + 1:end]
+        seen = next((ev for ev in later if ev.get("kind") == "change_detected"), None)
+        items = [f"<li><span class='tag sw'>⚡ {t['inc_switch']}</span> SW-{w['id']} ({e(t['kinds'].get(w.get('kind', ''), w.get('kind', '')))}, "
+                 f"{e(' – '.join(w.get('between', [])))}): {t['now']} <b>{t['closed'] if w.get('closed') else t['open']}</b></li>"
+                 for w in iv.get("switches", [])]
+        items += [f"<li><span class='tag fault'>🔥 {t['inc_meter']}</span> {e(m)}: {t['meter_off']}</li>" for m in iv.get("meters_off", [])]
+        out.append(f"<div class='incident'><p><b>{_clock(iv.get('t', 0))}</b></p><ul>{''.join(items)}</ul>")
+        if seen:
+            detected += 1
+            exps = sum(1 for ev in later[:later.index(seen) + 1] if ev.get("kind") == "experiment") + 1
+            shifts = ", ".join(f"{e(k)} {v * 1000:+.2f} mpu" for k, v in list((seen.get("largest_shifts_pu") or {}).items())[:5])
+            off = ", ".join(e(x) for x in seen.get("meters_offline") or [])
+            out.append(f"<p class='ok'>✓ {t['detected']} {t['at']} {_clock(seen.get('t', 0))}, {t['exp_n'].format(n=exps)} · "
+                       f"{seen.get('experiments_set_aside', 0)} {t['set_aside']}</p>"
+                       + (f"<p>{t['shifts']}: {shifts}</p>" if shifts else "") + (f"<p>{e(off)}</p>" if off else ""))
+        else:
+            out.append(f"<p class='bad'>✗ {t['not_detected']}</p>")
+        if iv.get("commitment"):
+            out.append(f"<p class='small'>{t['new_seal']}: <code>{e(iv['commitment'])}</code></p>")
+        out.append("</div>")
+    out.append(f"<p class='note'>{t['inc_score']}</p>")
+    return "".join(out), len(ivs), detected
 
 
 def render(row, lang: str | None = None) -> str:
@@ -104,9 +177,15 @@ def render(row, lang: str | None = None) -> str:
     events = row.events or []
     sc = row.score or {}
     g = sc.get("gridxray")
+    from gridxray.runs import apply_interventions
+    from gridxray.seal import canonical
+
     s = make_scenario(row.source, row.seed)
+    initial_canonical = canonical(s)  # the seal covers the network at the start
+    apply_interventions(s, events)  # verdicts use the network as it ended
     names = {n.id: n.name for n in s.observable().nodes} | {r: s.names[r] for r in s.roots}
     truth = {(min(a, b), max(a, b)) for a, b in s.true_edges}
+    inc_html, n_inc, n_det = incidents_html(events, t)
     final = next((ev for ev in reversed(events) if ev.get("kind") == "candidate" and ev.get("why") == "final proposal"), None)
     proposed = [(c["child"], c["parent"], c.get("basis")) for c in (final or {}).get("edges", [])]
     found = {(min(c, p), max(c, p)) for c, p, _ in proposed}
@@ -121,17 +200,20 @@ def render(row, lang: str | None = None) -> str:
            f"<span class='brand'>GridXray · by Zynplex</span><h1>{e(t['title'])}</h1>"
            f"<p style='color:#5d6b7a;margin:0'>{e(t['date'])}: {e(str(getattr(row, 'created_at', '') or datetime.now()))[:19]} · ID {e(row.id[:12])}</p>")]
     out.append(f"<h2>{t['scenario']}</h2><div class='kv'>"
-               f"<div><b>{e(row.source)}</b><span>{t['network']}</span></div><div><b>{row.seed}</b><span>{t['seed']}</span></div>"
+               f"<div><b>{e(network_name(row.source, t))}</b><span>{t['network']}</span></div><div><b>{row.seed}</b><span>{t['seed']}</span></div>"
                f"<div><b>{row.budget}</b><span>{t['budget']}</span></div>"
                f"<div><b>{len(names) - len(s.roots)}</b><span>{t['child']}</span></div>"
                f"<div><b>{e(started.get('spark', '—'))}</b><span>{t['models']} · Spark</span></div>"
                f"<div><b>{e(started.get('wonder', '—'))}</b><span>{t['models']} · Wonder</span></div></div>")
     if g:
         out.append(f"<h2>{t['result']}</h2><p><span class='big'>{g['correct_edges']}/{g['total_edges']}</span> "
-                   f"{t['vs_real']} · F1 {g['f1']:.2f} · {g['experiments']} {t['experiments'].lower()}</p>"
+                   f"{t['vs_real']} · F1 {round(g['f1'] * 100)}% · {g['experiments']} {t['experiments'].lower()}</p>"
                    f"<div class='kv'><div><b>{g['correct_edges']}</b><span>{t['correct']}</span></div>"
                    f"<div><b>{g['wrong_edges']}</b><span>{t['wrong']}</span></div>"
-                   f"<div><b>{g['wrong_and_flagged']}/{g['wrong_edges']}</b><span>{t['flagged']}</span></div></div>")
+                   f"<div><b>{g['wrong_and_flagged']}/{g['wrong_edges']}</b><span>{t['flagged']}</span></div>"
+                   f"<div><b>{n_inc}</b><span>{t['incidents_kv']}</span></div>"
+                   f"<div><b>{n_det}/{n_inc}</b><span>{t['detected_kv']}</span></div></div>")
+    out.append(inc_html)
     if result.get("summary"):
         out.append(f"<h2>{t['summary']}</h2><div class='note'>{md(result['summary'])}</div>")
     if proposed:
@@ -144,13 +226,17 @@ def render(row, lang: str | None = None) -> str:
         out.append("</table>")
         out.append(f"<p><b>{t['missed']}:</b> " + (", ".join(f"{e(names.get(a, str(a)))}–{e(names.get(b, str(b)))}" for a, b in missed) or t["none"]) + "</p>")
     exps = [ev for ev in events if ev.get("kind") == "experiment"]
+    # experiments before the last detected change describe the old network and stopped counting
+    last_change = max((i for i, ev in enumerate(events) if ev.get("kind") == "change_detected"), default=-1)
+    stale = {id(ev) for ev in events[:last_change] if ev.get("kind") == "experiment" and ev.get("accepted")}
     if exps:
         out.append(f"<h2>{t['timeline']}</h2><table><tr><th>#</th><th>{t['node']}</th><th>{t['response']}</th></tr>")
         for ev in exps:
             a = ev.get("args", {})
             what = f"{a.get('delta_kw')} kW @ {a.get('node')}" if a.get("kind") == "perturb_load" else f"switch #{a.get('switch_id')}"
             top = ", ".join(f"{e(k)} {v * 1000:.2f}" for k, v in list((ev.get("drop_pu_per_mw") or {}).items())[:4])
-            out.append(f"<tr><td>{ev.get('experiment') or '—'}</td><td>{e(what)}{'' if ev.get('accepted') else ' · ' + t['rejected']}</td>"
+            aside = f" · <span class='small'>{t['aside']}</span>" if id(ev) in stale else ""
+            out.append(f"<tr><td>{ev.get('experiment') or '—'}</td><td>{e(what)}{'' if ev.get('accepted') else ' · ' + t['rejected']}{aside}</td>"
                        f"<td>{top or e(str(ev.get('message', '')))}</td></tr>")
         out.append("</table>")
     hyps = [ev for ev in events if ev.get("kind") == "hypothesis"]
@@ -167,9 +253,9 @@ def render(row, lang: str | None = None) -> str:
         out.append(f"<tr class='us'><td>Total</td><td>{usage.get('tokens', 0):,}</td><td>${usage.get('cost_usd', 0):.3f}</td></tr></table>")
     sealed = next((ev for ev in events if ev.get("kind") == "sealed"), None)
     if sealed:
-        from gridxray.seal import canonical, commitment
+        from gridxray.seal import commitment
 
-        ok = getattr(row, "seal_nonce", None) and commitment(row.seal_nonce, canonical(s)) == sealed.get("commitment")
+        ok = getattr(row, "seal_nonce", None) and commitment(row.seal_nonce, initial_canonical) == sealed.get("commitment")
         out.append(f"<h2>{t['seal']}</h2><p class='note'>{t['seal_text']}<br><code>{e(sealed.get('commitment', ''))}</code><br>"
                    f"<b class='{'ok' if ok else 'bad'}'>{t['seal_ok'] if ok else t['seal_bad']}</b></p>")
     used = sorted({ev.get("tool") for ev in events if ev.get("kind") == "tool_call"})
@@ -186,6 +272,7 @@ def render(row, lang: str | None = None) -> str:
                        f"{e(str(rd.get('switch_state') or ''))} · {e(str(r.get('record_check') or ''))}<br>"
                        f"<span class='note'>{e(str(rd.get('notes') or ''))}</span></p></div>")
     out.append(f"<h2>{t['how']}</h2><p class='note'>{t['how_text']}</p>"
-               f"<h2>{t['repro']}</h2><p><code>uv run gridxray investigate --level {e(row.source)} --seed {row.seed} --budget {row.budget}</code></p>"
+               + ("" if row.source.startswith("custom:") else
+                  f"<h2>{t['repro']}</h2><p><code>uv run gridxray investigate --level {e(row.source)} --seed {row.seed} --budget {row.budget}</code></p>") +
                "</main></body></html>")
     return "".join(out)

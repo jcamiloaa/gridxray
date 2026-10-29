@@ -188,6 +188,8 @@ class Investigator:
 
         It runs in a background thread so Spark keeps experimenting meanwhile; submit_result waits for it.
         """
+        if not self.cfg.meta_inference_enabled:
+            return {"accepted": False, "message": "Muse Wonder's inference is not available in this investigation."}
         if self._meta_thread is not None:
             return {"accepted": False, "message": "Muse Wonder's inference is already running or done; its vote "
                     "appears in consensus (meta_vote) when ready."}

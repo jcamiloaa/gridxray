@@ -1,0 +1,11 @@
+→ easy seed=1 budget=8 wonder=True
+  GridXray 15/15 F1=1.0 wrong=0 flagged=0 | 236.0s
+→ easy seed=2 budget=8 wonder=True
+  GridXray 12/15 F1=0.8 wrong=3 flagged=1 | 521.7s
+→ easy seed=3 budget=8 wonder=True
+  GridXray 13/15 F1=0.867 wrong=2 flagged=0 | 237.4s
+→ medium seed=1 budget=15 wonder=True
+  GridXray 18/30 F1=0.6 wrong=12 flagged=8 | 408.6s
+→ medium seed=2 budget=15 wonder=True
+  GridXray 21/30 F1=0.7 wrong=9 flagged=3 | 660.3s
+→ medium seed=3 budget=15 wonder=True
