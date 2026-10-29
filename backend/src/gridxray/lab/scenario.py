@@ -5,6 +5,7 @@ The agents only ever receive an `ObservableGrid`: node and device inventories, t
 (possibly outdated) documented switch states and meter readings, never the lines.
 """
 
+import threading
 from dataclasses import asdict, dataclass, field
 from enum import StrEnum
 
@@ -119,6 +120,8 @@ class Scenario:
     hour: int = DEFAULT_HOUR
     _peak: dict[int, tuple[float, float]] = field(default_factory=dict, repr=False)
     _pv_peak: dict[int, float] = field(default_factory=dict, repr=False)
+    # experiments (investigation thread) and field interventions (API thread) never touch the network at once
+    lock: threading.RLock = field(default_factory=threading.RLock, repr=False)
 
     def __post_init__(self) -> None:
         self._peak = {

@@ -77,7 +77,10 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   })
   if (!res.ok) {
     const detail = await res.json().then((b) => b.detail, () => null)
-    throw new ApiError(res.status, typeof detail === 'string' ? detail : `API ${res.status}`)
+    const text = typeof detail === 'string' ? detail
+      : Array.isArray(detail?.errors) ? detail.errors.join(' ') // a designed network that does not work, in words
+        : `API ${res.status}`
+    throw new ApiError(res.status, text)
   }
   return res.status === 204 ? (undefined as T) : res.json()
 }
@@ -90,9 +93,10 @@ export const auth = {
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
 }
 
-export type ScenarioSource = { complexity: Complexity } | { reference: Reference }
+export type ScenarioSource = { complexity: Complexity } | { reference: Reference } | { grid: string }
 
 export function createScenario(source: ScenarioSource, seed: number): Promise<ObservableScenario> {
+  if ('grid' in source) return request(`/grids/${source.grid}/scenario?seed=${seed}`, { method: 'POST' })
   const query = 'reference' in source ? `reference=${source.reference}` : `complexity=${source.complexity}`
   return request(`/scenarios?${query}&seed=${seed}`, { method: 'POST' })
 }
@@ -100,6 +104,7 @@ export function createScenario(source: ScenarioSource, seed: number): Promise<Ob
 export const getShowcase = () => request<Showcase>('/showcase')
 
 export function getTruth(source: ScenarioSource, seed: number): Promise<{ truth: Truth }> {
+  if ('grid' in source) return request(`/grids/${source.grid}/truth?seed=${seed}`, { method: 'POST' })
   const query = 'reference' in source ? `reference=${source.reference}` : `complexity=${source.complexity}`
   return request(`/scenarios/truth?${query}&seed=${seed}`, { method: 'POST' })
 }
@@ -142,7 +147,7 @@ export interface RunEvent {
 }
 
 export const EVENT_KINDS = ['sealed', 'started', 'meta_inference', 'crew_dispatched', 'crew_stage', 'field_photo', 'segmentation', 'field_reading', 'reasoning', 'message', 'tool_call', 'tool_result', 'experiment', 'candidate',
-  'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done']
+  'hypothesis', 'review_started', 'review', 'result', 'recovered', 'resumed', 'stopped', 'usage', 'error', 'done', 'intervention', 'change_detected']
 
 export interface ActiveRun { id: string; source: string; seed: number; budget: number }
 
@@ -191,6 +196,7 @@ export const getSeal = (id: string) => request<SealReveal>(`/investigations/${id
 export const resumeRun = (id: string) => request<ActiveRun>(`/investigations/${id}/resume`, { method: 'POST' })
 
 export function sourceOf(s: string): ScenarioSource {
+  if (s.startsWith('custom:')) return { grid: s.slice(7) }
   return s === 'cigre_mv' || s === 'mv_oberrhein' ? { reference: s } : { complexity: s as Complexity }
 }
 
@@ -210,4 +216,35 @@ export function streamInvestigation(id: string, onEvent: (e: RunEvent) => void, 
     onError()
   }
   return () => es.close()
+}
+
+/* ---------- networks designed in the editor ---------- */
+
+export interface DesignNode { key: string; name: string; cell: [number, number]; mount: 'kiosk' | 'pole'; profile: 'residential' | 'commercial'; kw: number; metered: boolean }
+export type SwitchKind = 'tie' | 'sectionalizer' | 'recloser' | 'fuse'
+export interface DesignSwitch { kind: SwitchKind; closed: boolean; documented_closed: boolean | null }
+export interface DesignLine { a: string; b: string; kind: LineKind; switch: DesignSwitch | null }
+export interface Design { name: string; substation_row: number; nodes: DesignNode[]; lines: DesignLine[]; noise: 'clean' | 'realistic' | 'noisy' }
+export interface GridSummary { id: string; name: string; nodes: number; lines: number; switches: number; updated_at: string }
+
+export const grids = {
+  list: () => request<GridSummary[]>('/grids'),
+  get: (id: string) => request<GridSummary & { design: Design }>(`/grids/${id}`),
+  create: (d: Design) => request<GridSummary>('/grids', { method: 'POST', body: JSON.stringify(d) }),
+  update: (id: string, d: Design) => request<GridSummary>(`/grids/${id}`, { method: 'PUT', body: JSON.stringify(d) }),
+  remove: (id: string) => request<void>(`/grids/${id}`, { method: 'DELETE' }),
+  validate: (d: Design) => request<{ errors: string[] }>('/grids/validate', { method: 'POST', body: JSON.stringify(d) }),
+  template: (complexity: Complexity, seed: number) => request<Design>(`/grids/template?complexity=${complexity}&seed=${seed}`),
+}
+
+/* ---------- live intervention ---------- */
+
+export interface FieldSwitch { id: number; kind: SwitchKind; closed: boolean; documented_closed: boolean; between: [string, string] }
+export interface FieldView { switches: FieldSwitch[]; meters: { id: number; name: string; offline: boolean }[] }
+
+export const field = {
+  view: (runId: string) => request<FieldView>(`/investigations/${runId}/field`),
+  intervene: (runId: string, switches: number[], metersOff: number[]) =>
+    request<{ applied: boolean }>(`/investigations/${runId}/intervene`, { method: 'POST', body: JSON.stringify({ switches, meters_off: metersOff }) }),
+  truth: (runId: string) => request<{ truth: Truth; initial_edges: [number, number][]; interventions: number }>(`/investigations/${runId}/truth`),
 }

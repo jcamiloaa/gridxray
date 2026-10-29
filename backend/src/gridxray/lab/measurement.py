@@ -11,7 +11,7 @@ class SensorModel:
     voltage_noise_pu: float  # gaussian std on |V|
     power_noise_rel: float  # relative gaussian std on P and Q
     missing_rate: float  # probability a reading is lost
-    faulty_meters: dict[int, str] = field(default_factory=dict)  # node -> "stuck" | "biased"
+    faulty_meters: dict[int, str] = field(default_factory=dict)  # node -> "stuck" | "biased" | "dead" (offline)
 
 
 def read_meters(
@@ -22,7 +22,7 @@ def read_meters(
     load_q = net.load.groupby("bus").q_mvar.sum() * 1000
     readings: dict[int, dict[str, float | None]] = {}
     for node in metered:
-        if rng.random() < model.missing_rate:
+        if model.faulty_meters.get(node) == "dead" or rng.random() < model.missing_rate:
             readings[node] = {"vm_pu": None, "p_kw": None, "q_kvar": None}
             continue
         vm = float(net.res_bus.vm_pu.at[node]) + rng.normal(0, model.voltage_noise_pu)

@@ -356,6 +356,9 @@ class Investigator:
             out = {"error": str(e)}
         except Exception as e:  # noqa: BLE001 - surface any tool failure to the model, keep going
             out = {"error": f"{type(e).__name__}: {e}"}
+        changes = [r["field_change"] for r in out.get("results", [out]) if isinstance(r, dict) and r.get("field_change")]
+        for c in changes:  # the agent noticed a change in the field by itself, from the readings
+            self.emit("change_detected", **c)
         if name == "run_experiment":
             self.emit("experiment", args=args, **out)
             if out.get("accepted"):

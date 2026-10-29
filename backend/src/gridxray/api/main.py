@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse
 from gridxray import __version__
 from gridxray.api.auth import CurrentUser
 from gridxray.api.auth import router as auth_router
+from gridxray.api.grids import router as grids_router
 from gridxray.api.investigations import router as investigations_router
 from gridxray.api.settings import router as settings_router
 from gridxray.auth.service import ensure_demo_user
@@ -37,6 +38,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(investigations_router)
 app.include_router(settings_router)
+app.include_router(grids_router)
 
 
 @app.get("/", include_in_schema=False)

@@ -160,6 +160,34 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
           case 'stopped':
           case 'recovered':
             return <li key={i} className="tl tl--sys"><span className="tl__icon">↻</span><div><p>{String(e.message)}</p></div></li>
+          case 'intervention': {
+            const sws = (e.switches ?? []) as { id: number; kind: string; closed: boolean; between: string[] }[]
+            const off = (e.meters_off ?? []) as string[]
+            return (
+              <li key={i} className="tl tl--intervention"><span className="tl__icon">⚡</span><div>
+                <b>{t('You changed the real network')}</b>
+                <ul>
+                  {sws.map((w) => <li key={w.id}>SW-{w.id} ({t(w.kind)}, {w.between.join(' – ')}): {t('now')} <b>{t(w.closed ? 'closed' : 'open')}</b></li>)}
+                  {off.length > 0 && <li>{t('Meters offline')}: {off.join(', ')}</li>}
+                </ul>
+                <p className="muted">{t('intervention.note')}</p>
+                {e.commitment ? <code className="tl__hash">{String(e.commitment)}</code> : null}
+              </div></li>
+            )
+          }
+          case 'change_detected': {
+            const shifts = Object.entries((e.largest_shifts_pu ?? {}) as Record<string, number>).slice(0, 5)
+            const off = (e.meters_offline ?? []) as string[]
+            return (
+              <li key={i} className="tl tl--detected"><span className="tl__icon">👁</span><div>
+                <b>{t('The AI noticed a change in the field')}</b>
+                <p>{t('detected.note')}</p>
+                {shifts.length > 0 && <p className="muted">{t('Largest voltage shifts')}: {shifts.map(([n, v]) => `${n} ${v > 0 ? '+' : ''}${(v * 1000).toFixed(1)} mpu`).join(' · ')}</p>}
+                {off.length > 0 && <p className="muted">{t('Meters gone silent')}: {off.join(', ')}</p>}
+                <small className="muted">{String(e.experiments_set_aside ?? 0)} {t('earlier experiments set aside')}</small>
+              </div></li>
+            )
+          }
           case 'error':
             return <li key={i} className="tl tl--error"><span className="tl__icon">!</span><div><p>{String(e.message)}</p></div></li>
           default:

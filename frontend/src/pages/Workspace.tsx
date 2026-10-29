@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { money } from '../money'
-import { createScenario, getActiveInvestigation, getTruth, sourceOf, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
+import { createScenario, getActiveInvestigation, getTruth, grids, sourceOf, type Design, type GridSummary, type ObservableScenario, type RunSummary, type ScenarioSource, type Truth, type User } from '../api/client'
+import { FieldPanel } from '../components/FieldPanel'
+import { GridEditor } from '../components/GridEditor'
 import { Brand } from '../components/Brand'
 import { Icon } from '../components/Icon'
 import { Info } from '../components/Info'
@@ -39,6 +41,14 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
   const [revealed, setRevealed] = useState(false)
   const [generated, setGenerated] = useState<{ source: ScenarioSource; seed: number } | null>(null)
   const [drawer, setDrawer] = useState<'runs' | 'usage' | 'evidence' | null>(null)
+  // networks designed in the editor
+  const [myGrids, setMyGrids] = useState<GridSummary[]>([])
+  const [editor, setEditor] = useState<{ initial?: Design; gridId?: string } | null>(null)
+  const refreshGrids = () => grids.list().then(setMyGrids, () => {})
+  useEffect(() => { refreshGrids() }, [])
+  const gridOption = (g: GridSummary): SourceOption => ({ key: `g${g.id}`, source: { grid: g.id }, title: g.name,
+    text: `${g.nodes} ${'substations'} · ${g.switches} ${'switches'}` })
+  const myOptions = myGrids.map(gridOption)
   // the investigation log can be resized by dragging its left edge; the width is remembered
   const [logWidth, setLogWidth] = useState(() => {
     try { return Number(localStorage.getItem('gridxray.logWidth')) || 380 } catch { return 380 }
@@ -65,7 +75,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
   const pendingAttach = useRef<string | null>(null)
   async function openRun(r: { id: string; source: string; seed: number; budget: number }) {
     const source = sourceOf(r.source)
-    const match = [...SYNTHETIC, ...BENCHMARKS].find((o) => JSON.stringify(o.source) === JSON.stringify(source))
+    const match = [...SYNTHETIC, ...BENCHMARKS, ...myOptions].find((o) => JSON.stringify(o.source) === JSON.stringify(source))
     if (match) setChoice(match)
     setSeed(r.seed)
     setBudget(r.budget)
@@ -79,7 +89,7 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
   // reattach to an investigation already running in this session (page reload, second tab)
   useEffect(() => {
     getActiveInvestigation().then((active) => { if (active) openRun(active) }, () => {})
-     
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- once, on mount
   }, [])
   useEffect(() => {
     if (scenario && pendingAttach.current) {
@@ -105,15 +115,15 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
     setRevealed((r) => !r)
   }
 
-  async function generate() {
+  async function generate(source: ScenarioSource = choice.source) {
     setBusy(true)
     setError(null)
     setSelected(null)
     setTruth(null)
     setRevealed(false)
     try {
-      setScenario(await createScenario(choice.source, seed))
-      setGenerated({ source: choice.source, seed })
+      setScenario(await createScenario(source, seed))
+      setGenerated({ source, seed })
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -139,6 +149,16 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
 
   return (
     <div className="workspace">
+      {editor && (
+        <GridEditor initial={editor.initial} gridId={editor.gridId} onClose={() => setEditor(null)}
+          onSaved={(g) => {
+            setEditor(null)
+            refreshGrids()
+            const o = gridOption(g)
+            setChoice(o)
+            generate(o.source)
+          }} />
+      )}
       <header className="topbar">
         <button className="btn-ghost" onClick={onHome} aria-label="GridXray home" style={{ padding: 4 }}><Brand /></button>
         <nav className="stepper" aria-label="Progress">
@@ -183,7 +203,33 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
               <span className="row" style={{ gap: 6 }}>{t('Scenario seed')}<Info>{t('seed.info')}</Info></span>
               <input type="number" value={seed} min={0} onChange={(e) => setSeed(Number(e.target.value))} style={{ width: 100 }} />
             </label>
-            <button className="btn-primary btn-lg" onClick={generate} disabled={busy}>
+            <span className="group-label">{t('My networks')}</span>
+            <div className="source-grid">
+              {myOptions.map((o) => (
+                <div key={o.key} className="source-mine">
+                  <button className="source-option" aria-pressed={choice.key === o.key} onClick={() => setChoice(o)}>
+                    <b>{o.title}</b><span>{o.text.replace('substations', t('substations')).replace('switches', t('switches'))}</span>
+                  </button>
+                  {choice.key === o.key && 'grid' in o.source && (
+                    <span className="source-mine__actions">
+                      <button className="btn-link" onClick={async () => {
+                        const g = await grids.get((o.source as { grid: string }).grid)
+                        setEditor({ initial: g.design, gridId: g.id })
+                      }}>{t('Edit')}</button>
+                      <button className="btn-link" onClick={async () => {
+                        if (!window.confirm(t('Delete this network?'))) return
+                        await grids.remove((o.source as { grid: string }).grid)
+                        setChoice(SYNTHETIC[1]); refreshGrids()
+                      }}>{t('Delete')}</button>
+                    </span>
+                  )}
+                </div>
+              ))}
+              <button className="source-option source-option--new" onClick={() => setEditor({})}>
+                <b>＋ {t('Design a network')}</b><span>{t('Draw substations, cables and switches; then let the AI discover it')}</span>
+              </button>
+            </div>
+            <button className="btn-primary btn-lg" onClick={() => generate()} disabled={busy}>
               {busy ? t('Solving power flow…') : scenario ? t('Generate a new grid') : t('Generate grid')}
             </button>
             {error && <p className="error" role="alert">{error}</p>}
@@ -228,6 +274,9 @@ export function Workspace({ user, onSignOut, onHome }: { user: User; onSignOut: 
                   {run.status === 'running' ? t('Investigating…') : run.status === 'idle' ? t('Start investigation') : t('Run again')}
                 </button>
                 {run.status === 'running' && <button className="btn-stop" onClick={run.stop}>■ {t('STOP')}</button>}
+                {run.status === 'running' && run.runId && (
+                  <FieldPanel runId={run.runId} changes={run.events.filter((e) => e.kind === 'intervention').length} />
+                )}
                 {(run.status === 'failed' || run.status === 'stopped') && run.runId && <button onClick={run.resume}>{t('Resume')}</button>}
                 {run.status === 'running' && (
                   <div className="run-progress">

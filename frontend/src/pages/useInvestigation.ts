@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
-  getSeal, getTruth, resumeRun, startInvestigation, stopRun, streamInvestigation, type CandidateEdge, type ObservableScenario, type RunEvent,
+  field, getSeal, getTruth, resumeRun, startInvestigation, stopRun, streamInvestigation, type CandidateEdge, type ObservableScenario, type RunEvent,
   type RunScore, type ScenarioSource,
 } from '../api/client'
 import type { Overlay } from '../scene/model'
@@ -115,7 +115,10 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
   /** Reveal & compare: colour every proposed connection by whether it really exists. */
   const compare = useCallback(async () => {
     if (!generated) return
-    const { truth } = await getTruth(generated.source, generated.seed)
+    // the run's own truth includes any change you made in the field; the seal covers the network at the start
+    const fromRun = runId ? await field.truth(runId).catch(() => null) : null
+    const truth = fromRun?.truth ?? (await getTruth(generated.source, generated.seed)).truth
+    const sealedAgainst = fromRun?.initial_edges ?? truth.edges
     setTruthEdges(truth.edges)
     // the commitment came in the first event, before the AI saw anything; the secret is revealed only now
     const published = events.find((e) => e.kind === 'sealed')?.commitment as string | undefined
@@ -127,7 +130,7 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
       const recomputed = await sha256(s.nonce + s.canonical)
       const key = (e: number[]) => pairKey(e[0], e[1])
       const sealed = new Set((JSON.parse(s.canonical).edges as number[][]).map(key))
-      const edgesMatch = sealed.size === truth.edges.length && truth.edges.every((e) => sealed.has(key(e)))
+      const edgesMatch = sealed.size === sealedAgainst.length && sealedAgainst.every((e) => sealed.has(key(e)))
       setSeal({ state: recomputed === published && edgesMatch ? 'ok' : 'bad', commitment: published, recomputed, edgesMatch })
     } catch (e) {
       setSeal({ state: 'unavailable', reason: e instanceof Error ? e.message : String(e) })

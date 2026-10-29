@@ -74,9 +74,37 @@ class LiveRun:
 
 
 def make_scenario(source: str, seed: int) -> Scenario:
+    if source.startswith("custom:"):  # a network designed in the editor
+        from gridxray.lab.custom import Design, build_custom
+        from gridxray.store.models import CustomGrid
+
+        with SessionLocal() as db:
+            row = db.get(CustomGrid, source.split(":", 1)[1])
+            if row is None:
+                raise ValueError("this designed network was deleted")
+            return build_custom(Design(**row.design), seed, source)
     if source in {r.value for r in Reference}:
         return load_reference(Reference(source), seed)
     return generate_scenario(Complexity(source), seed)
+
+
+def apply_interventions(s: Scenario, events: list[dict]) -> int:
+    """Replay the field interventions of a run onto a fresh scenario (resume, seal, reveal)."""
+    import dataclasses
+
+    n = 0
+    for e in events:
+        if e.get("kind") != "intervention":
+            continue
+        for w in e.get("switches", []):
+            s.net.switch.at[w["id"], "closed"] = w["closed"]
+        if e.get("meters_off_ids"):
+            s.sensors = dataclasses.replace(s.sensors, faulty_meters={**s.sensors.faulty_meters,
+                                                                      **{int(m): "dead" for m in e["meters_off_ids"]}})
+        n += 1
+    if n:
+        s.solve(s.hour)
+    return n
 
 
 def run_summary(row: InvestigationRun | LiveRun) -> dict:
@@ -140,6 +168,51 @@ class RunManager:
         run.flush()
         return True
 
+    def intervene(self, run_id: str, toggles: list[int], meters_off: list[int]) -> str | None:
+        """Change the real network of a running investigation; the agents are not told."""
+        from gridxray.sim.engine import apply_intervention
+
+        run = self.runs.get(run_id)
+        if not run or run.status != "running" or not run.investigator:
+            return "this investigation is not running"
+        s = run.investigator.run.toolbox.engine.s
+        problem = apply_intervention(s, toggles, meters_off)
+        if problem:
+            return problem
+        sw = s.net.switch
+
+        def between(i: int) -> list[str]:
+            line = int(sw.element.at[i])
+            return [s.names[int(s.net.line.from_bus.at[line])], s.names[int(s.net.line.to_bus.at[line])]]
+
+        t = round(run.events[-1]["t"] if run.events else 0.0, 2)
+        run.push({"t": t, "kind": "intervention",
+                  "switches": [{"id": i, "kind": s.switch_kind[i], "closed": bool(sw.closed.at[i]), "between": between(i)}
+                               for i in toggles],
+                  "meters_off": [s.names[m] for m in meters_off], "meters_off_ids": meters_off,
+                  # a new commitment to the changed topology, published before the AI can react
+                  "commitment": commitment(run.seal_nonce, canonical(s)) if run.seal_nonce else None})
+        run.flush()
+        return None
+
+    def field_view(self, run_id: str) -> dict | None:
+        """The real network as the field sees it (for the person intervening, never for the agents)."""
+        run = self.runs.get(run_id)
+        if not run or not run.investigator:
+            return None
+        s = run.investigator.run.toolbox.engine.s
+        with s.lock:
+            sw = s.net.switch
+            switches = []
+            for i in sorted(s.switch_kind):
+                line = int(sw.element.at[i])
+                a, b = int(s.net.line.from_bus.at[line]), int(s.net.line.to_bus.at[line])
+                switches.append({"id": i, "kind": s.switch_kind[i], "closed": bool(sw.closed.at[i]),
+                                 "documented_closed": s.documented_switch_closed[i],
+                                 "between": [s.names.get(a, str(a)), s.names.get(b, str(b))]})
+            meters = [{"id": n, "name": s.names[n], "offline": s.sensors.faulty_meters.get(n) == "dead"} for n in s.metered]
+        return {"switches": switches, "meters": meters}
+
     def resume_interrupted(self) -> int:
         """Called at startup: resume every run the previous process left running."""
         with SessionLocal() as db:
@@ -160,6 +233,7 @@ class RunManager:
             s = make_scenario(run.source, run.seed)
             # drop a stale "done" from a previous attempt: this run continues
             if restore:
+                apply_interventions(s, run.events)
                 with run.lock:
                     run.events = [e for e in run.events if e.get("kind") != "done"]
             from gridxray.apikeys import key_for_user

@@ -23,6 +23,7 @@ MAX_CONCURRENT = 4  # protects the Meta Model API quota during judging
 class StartRequest(BaseModel):
     complexity: Complexity = Complexity.EASY
     reference: Reference | None = None
+    grid: str | None = Field(default=None, max_length=32)  # a network designed in the editor
     seed: int = 0
     budget: int = Field(default=10, ge=1, le=40)
     language: str = Field(default="en", pattern="^(en|es)$")
@@ -56,6 +57,12 @@ def start(body: StartRequest, user: CurrentUser, session: Session = None) -> dic
     if manager.running_count() >= MAX_CONCURRENT:
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "Several investigations are running; try again in a few minutes")
     source = body.reference.value if body.reference else body.complexity.value
+    if body.grid:
+        from gridxray.api.grids import owned_grid
+        from gridxray.store.db import SessionLocal
+
+        with SessionLocal() as db:
+            source = f"custom:{owned_grid(db, body.grid, user, session).id}"
     run = manager.start(user.id, source, body.seed, body.budget, key, body.language)
     return {"id": run.id, "source": source, "seed": body.seed, "budget": body.budget}
 
@@ -117,6 +124,49 @@ def get(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) 
     src = live or row
     return {"id": row.id, "status": src.status, "events": live.since(0) if live else row.events, "score": src.score,
             "source": row.source, "seed": row.seed, "budget": row.budget}
+
+
+class InterveneRequest(BaseModel):
+    switches: list[int] = Field(default_factory=list, max_length=6)  # switches to operate (toggle)
+    meters_off: list[int] = Field(default_factory=list, max_length=10)  # meters that go offline
+
+
+@router.get("/{run_id}/field")
+def field(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) -> dict:
+    """Live intervention panel: the real switch positions and meters of a running investigation."""
+    _owned(db, run_id, user, session)
+    view = manager.field_view(run_id)
+    if view is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "This investigation is not running")
+    return view
+
+
+@router.post("/{run_id}/intervene")
+def intervene(run_id: str, body: InterveneRequest, user: CurrentUser, db: DbSession, session: Session = None) -> dict:
+    """Change the real network while the AI investigates; it is not told and must notice from the readings."""
+    _owned(db, run_id, user, session)
+    if not body.switches and not body.meters_off:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose a switch to operate or a meter to switch off")
+    problem = manager.intervene(run_id, body.switches, body.meters_off)
+    if problem:
+        raise HTTPException(status.HTTP_409_CONFLICT, f"Not applied: {problem}")
+    return {"applied": True}
+
+
+@router.get("/{run_id}/truth")
+def run_truth(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) -> dict:
+    """The real network at the end of this run (field interventions included) and the one sealed at the start."""
+    from gridxray.runs import apply_interventions, make_scenario
+
+    row = _owned(db, run_id, user, session)
+    live = manager.runs.get(run_id)
+    if (live.status if live else row.status) == "running":
+        raise HTTPException(status.HTTP_409_CONFLICT, "The real network is revealed when the investigation has finished")
+    events = live.since(0) if live else row.events
+    s = make_scenario(row.source, row.seed)
+    initial = sorted(s.true_edges)
+    changed = apply_interventions(s, events)
+    return {"truth": s.reveal(), "initial_edges": initial, "interventions": changed}
 
 
 @router.get("/{run_id}/seal")

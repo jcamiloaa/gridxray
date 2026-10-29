@@ -118,6 +118,20 @@ uv run gridxray investigate --level easy --seed 1 --budget 8 --log run.json   # 
    non-AI procedures: geographic (GIS + one voltage snapshot), passive (24 h voltage correlations) and
    exhaustive (perturb every node).
 
+## Design your own network, and change it while the AI works
+
+- **Network editor** (*My networks → Design a network*): place secondary substations on city blocks, join them with
+  overhead lines or underground cables from the HV/MV substation, add sectionalizers, reclosers, fuses and normally open
+  ties, and choose each switch's real position and what the records say (an outdated record). The editor checks the
+  design live (every substation supplied, radial operation, no loops) and can start from any generated network.
+  The AI then investigates it exactly like a generated one: it sees substations and meters, never the wiring.
+- **Live intervention** (*Intervene in the field*, while an investigation runs): operate switches (e.g. close a tie and
+  open a sectionalizer to transfer load) or switch meters off. Unsafe operations (loops, customers without supply,
+  broken limits) are refused. The AI is not told: the experiment engine compares each experiment's baseline readings
+  (and repeated load steps) against meter noise, and when the network moved it tells the agent, sets earlier
+  experiments aside and the agent re-tests the area. Each intervention publishes a new commitment of the changed network;
+  the result is scored against the network as it ended, and the original seal still verifies against the start.
+
 ## Built during the hackathon
 
 All code in this repository was written during the event (Oct 26 – Nov 4, 2026); see the git history. This includes the scenario generator, experiment engine, agent tools and loop, verifier, hybrid methods, seal, API and web UI.

@@ -189,7 +189,25 @@ class ToolBox:
         return parent
 
     def evidence(self, tol: float | None = None) -> Evidence:
-        return Evidence.from_records(self.engine.history, tol or self.tol)
+        # after a change in the field only experiments on the current topology count
+        current = [r for r in self.engine.history if r.epoch == self.engine.epoch]
+        return Evidence.from_records(current, tol or self.tol)
+
+    def field_change(self, change: dict) -> dict:
+        """What the agent is told when the baseline readings moved: the network was changed in the field."""
+        self._passive = None  # 24 h history and the Meta vote describe the old topology
+        self.meta_tree = None
+        self.obs = self.engine.s.observable()
+        stale = sum(1 for r in self.engine.history if r.accepted and r.epoch < self.engine.epoch)
+        return {
+            "message": ("FIELD CHANGE DETECTED: the meter baseline moved since the previous experiment although nothing "
+                        "was operated by you. Someone changed the network in the field (a switch operated, a meter went "
+                        "offline). Earlier experiments describe the old topology and no longer count as evidence; "
+                        "re-test the affected area, operate or check the switches near it, or send a field crew."),
+            "largest_shifts_pu": {self.name[n]: v for n, v in change["shifts_pu"].items()},
+            "meters_offline": [self.name[n] for n in change["offline"]],
+            "experiments_set_aside": stale,
+        }
 
     # ------------------------------------------------------------ tools
 
@@ -228,6 +246,8 @@ class ToolBox:
             raise ToolError(f"unknown experiment kind {kind!r}")
         out: dict = {"experiment": rec.id, "accepted": rec.accepted, "message": rec.message,
                      "budget_remaining": self.engine.remaining}
+        if rec.change:
+            out["field_change"] = self.field_change(rec.change)
         if rec.rejection:
             out["rejection"] = rec.rejection  # which limit, by how much, and a safe size to retry with
         if rec.accepted:
