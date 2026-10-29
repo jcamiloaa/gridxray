@@ -268,14 +268,13 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           ctx.beginPath()
           route(a, b2).forEach(([x, z], i) => { const [px, py] = project([x, bad ? 1.9 : 1.2, z]); if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py) })
           ctx.stroke()
-          if (bad && labels) { // where the drawing is wrong: what it says and what is real
-            const [lx5, ly5] = project([(a[0] + b2[0]) / 2, 2.6, (a[1] + b2[1]) / 2])
+          if (bad && labels) { // a small mark where the drawing is wrong (the detail is in the panel's list)
+            const [lx5, ly5] = project([(a[0] + b2[0]) / 2, 1.9, (a[1] + b2[1]) / 2])
             ctx.setLineDash([])
-            ctx.font = '700 11px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'
-            const txt = `✗ ${labels.plan} · ${labels.real}`
-            const w5 = ctx.measureText(txt).width + 16
-            ctx.fillStyle = '#b03030'; ctx.beginPath(); ctx.roundRect(lx5 - w5 / 2, ly5 - 10, w5, 20, 10); ctx.fill()
-            ctx.fillStyle = '#fff'; ctx.fillText(txt, lx5, ly5 + 4)
+            ctx.beginPath(); ctx.arc(lx5, ly5, 7, 0, 7); ctx.fillStyle = '#b03030'; ctx.fill()
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke()
+            ctx.font = '700 10px Inter, system-ui, sans-serif'; ctx.textAlign = 'center'
+            ctx.fillStyle = '#fff'; ctx.fillText('✗', lx5, ly5 + 3.5)
             ctx.setLineDash([5, 4])
           }
         }

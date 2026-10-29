@@ -114,7 +114,10 @@ export function HypothesisLayer({ overlay, pos }: { overlay: Overlay; pos: Map<n
             transparent opacity={0.9} />
           {real !== undefined && labels && (
             <Html position={[(pos.get(c)![0] + pos.get(p)![0]) / 2, 2.6, (pos.get(c)![1] + pos.get(p)![1]) / 2]} center zIndexRange={[5, 0]}>
-              <div className="plan-wrong-tag"><b>✗ {labels.plan}</b><span>{labels.real}</span></div>
+              {/* a small mark on the line; the detail opens on hover */}
+              <div className="plan-wrong-tag" title={`${labels.plan} · ${labels.real}`}>
+                <i>✗</i><span className="plan-wrong-tag__more"><b>{labels.plan}</b> · {labels.real}</span>
+              </div>
             </Html>
           )}
         </group>
