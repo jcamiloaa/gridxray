@@ -218,6 +218,15 @@ API and web UI.
   visible in the scene and in the report; the AI's network in the single-line diagram (measured, inferred, correct,
   wrong, missed); control room with the agents at work and a control center sending each experiment's signals;
   nameplates and hover-only labels; per-image costs in usage; ablation Spark alone vs Spark + Wonder; full README.
+  Later the same day: the utility's initial plan (none, current, old or with errors), given to the AI blind (only the
+  drawing and its dates, never its kind); a Planning agent that weighs the plan against free checks, sets how far to
+  trust it and, in autonomous mode, sizes the experiment budget; the plan joins the ensemble vote by trust; wrong plan
+  connections marked on the map once the network is revealed. After a field failure the planner re-plans: it may add
+  experiments (capped), recommend a crew and set where to re-test. Crews can see field faults (burnt meters,
+  de-energized sites). Deliberate outages: substations left without supply go silent, cannot be tested and are left
+  out of the score. The field panel says which switches cannot be operated alone and offers the tie that makes it
+  possible; compact scene chips with the full text on hover; budget bar follows the planner's extensions; a resumable
+  live stream; a link to the Meta Model API console for the real bill.
 
 ## Third-party
 
