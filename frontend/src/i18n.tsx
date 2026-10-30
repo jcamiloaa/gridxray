@@ -80,6 +80,8 @@ const ES: Record<string, string> = {
   'Session usage': 'Uso de la sesión', Investigations: 'Investigaciones', 'Total cost': 'Costo total', Model: 'Modelo',
   Input: 'Entrada', 'Cached input': 'Entrada en caché', Output: 'Salida', Reasoning: 'Razonamiento', Calls: 'Llamadas',
   'Prices (USD per 1M tokens, Standard mode)': 'Precios (USD por millón de tokens, modo Standard)',
+  'Check the real usage at Meta': 'Consulta el uso real en Meta', 'Meta prices and rate limits': 'Precios y límites de Meta',
+  'usage.meta.how': 'Inicia sesión en el panel de la Meta Model API con la cuenta dueña de la API key y abre el uso del equipo. Allí está el cobro real; aquí es nuestra estimación por tokens.',
   Language: 'Idioma', 'usage.note': 'Costos calculados con los precios publicados de la Meta Model API. El razonamiento se cobra como salida.',
   Close: 'Cerrar', 'No reading': 'Sin lectura', geographic: 'geográfico', passive: 'pasivo', exhaustive: 'exhaustivo',
   // evidence + report
@@ -502,6 +504,7 @@ const EN_LONG: Record<string, string> = {
   'meter.explain': 'Voltage is {pct}% of nominal. The further and more loaded the path from the substation, the lower it gets: a clue to where this kiosk sits in the network.',
   'runs.empty': 'No investigations in this session yet.',
   'runs.note': 'Investigations keep running on the server even if you close the browser, and resume on their own if the service restarts.',
+  'usage.meta.how': 'Sign in to the Meta Model API dashboard with the account that owns the API key and open the team usage. That is the real bill; this is our estimate from token counts.',
   'usage.note': "Costs computed with the Meta Model API's published prices. Reasoning tokens are billed as output.",
   'compare.note': 'Green = the AI found the right parent. Red = it was wrong (the real parent is shown). "?" = the AI flagged it as uncertain. On the map: green correct, red wrong, grey missed.',
   'bench.intro': 'Each row summarizes real investigations, scored against the real network hidden in the simulator by a checker with no AI. GridXray combines physics, traditional AI, geography and Meta AI.',

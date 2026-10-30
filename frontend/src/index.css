@@ -767,3 +767,6 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .ai-input__plan { border: 1px solid #d9ccf5; background: #f7f3ff; border-radius: 10px; padding: 8px 12px; font-size: .86rem; }
 .ai-input__plan p { margin: 0 0 4px; }
 .tl__blind { font-size: .8rem; color: #5b3fa0; background: #f3eefe; border-radius: 6px; padding: 4px 8px; }
+
+.usage-meta { display: grid; gap: 4px; padding: 10px 12px; font-size: .88rem; }
+.usage-meta a { font-weight: 700; overflow-wrap: anywhere; }

@@ -4,6 +4,9 @@ import { getUsage, type UsageReport } from '../api/client'
 import { LanguageToggle, useI18n } from '../i18n'
 import { MetaKeySettings } from './MetaKeySettings'
 
+const META_CONSOLE = 'https://dev.meta.ai/'
+const META_PRICING = 'https://dev.meta.ai/docs/pricing-rate-limits'
+
 const fmt = (n: number) => n.toLocaleString()
 
 /** Settings and usage: language, tokens per model and the cost of this session's investigations. */
@@ -70,6 +73,13 @@ export function UsageDrawer({ onClose }: { onClose: () => void }) {
           </table>
         )}
         <p className="explain">{t('usage.note')}</p>
+        {/* the real bill lives in Meta's console: these figures are our own estimate from the token counts */}
+        <div className="card usage-meta">
+          <b>{t('Check the real usage at Meta')}</b>
+          <a href={META_CONSOLE} target="_blank" rel="noreferrer">{META_CONSOLE.replace('https://', '')} ↗</a>
+          <small className="muted">{t('usage.meta.how')}</small>
+          <a href={META_PRICING} target="_blank" rel="noreferrer">{t('Meta prices and rate limits')} ↗</a>
+        </div>
       </aside>
     </div>
   )
