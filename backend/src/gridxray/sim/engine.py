@@ -67,18 +67,18 @@ class ExperimentEngine:
         loading = net.res_line.loading_percent.dropna()
         return float(net.res_bus.vm_pu[self.s.node_ids].min()), float(loading.max()) if len(loading) else 0.0
 
-    def _limits_ok(self) -> tuple[str, dict] | None:
+    def _limits_ok(self, dead0: set[int] = frozenset()) -> tuple[str, dict] | None:
         """The first operating limit the experiment would break: a message and the same reason as data.
 
         Only margins are reported (worst voltage, worst loading), never which line or where: that
-        would hint at the hidden wiring.
+        would hint at the hidden wiring. `dead0`: substations already in outage before the experiment.
         """
         net = self.s.net
         if not net.converged:
             return "the power flow did not converge", {"limit": "not_converged"}
         vm = net.res_bus.vm_pu[self.s.node_ids]
-        if vm.isna().any():
-            n = int(vm.isna().sum())
+        if any(int(b) not in dead0 for b in vm.index[vm.isna()]):
+            n = sum(1 for b in vm.index[vm.isna()] if int(b) not in dead0)
             return f"{n} secondary substations would be de-energized", {"limit": "deenergized", "value": n}
         if (vm < V_MIN).any():
             return (f"voltage would leave the {V_MIN}-{V_MAX} pu band (min {vm.min():.3f}, max {vm.max():.3f})",
@@ -185,11 +185,15 @@ class ExperimentEngine:
         self.s.solve(self.s.hour)
         before = self._averaged_vm(r)
         change = self._baseline_change(before, r)
+        dead0 = self.s.deenergized
+        if node in dead0:  # a load step needs supply at the node
+            return self._record(action, False, f"rejected: {self.s.names.get(node, node)} has no supply (outage)",
+                                rejection={"limit": "no_supply"}, change=change)
         margins = self._state()
         idx = pp.create_load(self.s.net, node, p_mw=delta_kw / 1000, q_mvar=delta_kw * 0.33 / 1000)
         try:
             self._solve()
-            problem = self._limits_ok()
+            problem = self._limits_ok(dead0)
             stressed = self._state() if problem and self.s.net.converged else None
             after = None if problem else self._averaged_vm(r)
         finally:
@@ -223,12 +227,13 @@ class ExperimentEngine:
         self.s.solve(self.s.hour)
         before = self._averaged_vm(r)
         change = self._baseline_change(before, r)
+        dead0 = self.s.deenergized
         sw = self.s.net.switch
         state = bool(sw.closed.at[switch_id])
         sw.at[switch_id, "closed"] = not state
         try:
             self._solve()
-            problem = self._limits_ok()
+            problem = self._limits_ok(dead0)
             after = None if problem else self._averaged_vm(r)
         finally:
             sw.at[switch_id, "closed"] = state
@@ -250,12 +255,14 @@ class ExperimentEngine:
             return readings
 
 
-def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int], dry: bool = False) -> str | None:
+def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int], dry: bool = False,
+                       allow_outage: bool = False) -> str | None:
     """Change the real network in the field (what the agents must notice by themselves).
 
     Switches are operated for good; meters go offline. Refused, and fully undone, when the result
-    would not be a safe radial network: a loop, customers left without supply or a broken limit.
-    Returns the reason for a refusal, None when applied. `dry` only checks and always undoes.
+    would not be a safe radial network: a loop, a broken limit or, unless `allow_outage` (a deliberate
+    outage), customers left without supply. Returns the reason for a refusal, None when applied.
+    `dry` only checks and always undoes.
     """
     import dataclasses
 
@@ -270,6 +277,7 @@ def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int], d
             if n not in s.metered:
                 return f"{s.names.get(n, n)} has no meter"
         before = {i: bool(sw.closed.at[i]) for i in toggles}
+        dead0 = s.deenergized
         for i in toggles:
             sw.at[i, "closed"] = not before[i]
         problem = None
@@ -279,10 +287,13 @@ def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int], d
             problem = "the power flow does not converge"
         if problem is None:
             vm = s.net.res_bus.vm_pu[s.node_ids]
-            if vm.isna().any():
-                dead = [s.names[int(b)] for b in vm.index[vm.isna()]]
-                problem = f"{', '.join(dead[:5])}{'…' if len(dead) > 5 else ''} would be left without supply"
-            elif len(s.true_edges) > len(s.node_ids):
+            dead = s.deenergized
+            if dead - dead0 and not allow_outage:
+                names = [s.names[b] for b in sorted(dead - dead0)]
+                problem = f"{', '.join(names[:5])}{'…' if len(names) > 5 else ''} would be left without supply"
+            elif dead == set(s.node_ids):
+                problem = "the whole network would be left without supply"
+            elif len(s.true_edges) > len(s.node_ids) - len(dead):
                 problem = "it would close a loop: open another switch in the same operation to keep the network radial"
             elif (vm < V_MIN).any() or (vm > V_MAX).any():
                 problem = f"voltage would leave the {V_MIN}-{V_MAX} pu band (min {vm.min():.3f})"

@@ -24,6 +24,8 @@ class Score:
 
 def score(s: Scenario, parent: dict[int, int], uncertain: list[int] | None = None, experiments: int = 0) -> Score:
     truth = s.true_edges
+    dead = s.deenergized  # an area in outage has no wiring to find: it is left out of the score
+    parent = {c: p for c, p in parent.items() if c not in dead and p not in dead}
     proposed = {(min(c, p), max(c, p)) for c, p in parent.items()}
     m = edge_metrics(proposed, truth)
     wrong_children = {c for c, p in parent.items() if (min(c, p), max(c, p)) not in truth}

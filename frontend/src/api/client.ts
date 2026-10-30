@@ -282,11 +282,14 @@ export interface FieldSwitch {
   alone?: string // why it cannot be operated on its own (absent when it can)
   pair_with?: number[] // switches that make it possible in the same operation
 }
-export interface FieldView { switches: FieldSwitch[]; meters: { id: number; name: string; offline: boolean }[] }
+export interface FieldView {
+  switches: FieldSwitch[]; meters: { id: number; name: string; offline: boolean }[]
+  outage?: { id: number; name: string }[] // substations without supply right now
+}
 
 export const field = {
   view: (runId: string) => request<FieldView>(`/investigations/${runId}/field`),
-  intervene: (runId: string, switches: number[], metersOff: number[]) =>
-    request<{ applied: boolean }>(`/investigations/${runId}/intervene`, { method: 'POST', body: JSON.stringify({ switches, meters_off: metersOff }) }),
+  intervene: (runId: string, switches: number[], metersOff: number[], allowOutage = false) =>
+    request<{ applied: boolean }>(`/investigations/${runId}/intervene`, { method: 'POST', body: JSON.stringify({ switches, meters_off: metersOff, allow_outage: allowOutage }) }),
   truth: (runId: string) => request<{ truth: Truth; initial_edges: [number, number][]; interventions: number }>(`/investigations/${runId}/truth`),
 }

@@ -29,6 +29,7 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [open, setOpen] = useState(false)
+  const [outage, setOutage] = useState(false) // a deliberate outage: substations may be left without supply
 
   const load = useCallback(() => field.view(runId).then(setView, () => setView(null)), [runId])
   useEffect(() => {
@@ -45,7 +46,7 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
     setBusy(true)
     setMsg(null)
     try {
-      await field.intervene(runId, [...toggle], [...off])
+      await field.intervene(runId, [...toggle], [...off], outage)
       setMsg({ ok: true, text: 'Applied in the field. The AI was not told: watch whether it notices.' })
       setToggle(new Set()); setOff(new Set())
       load()
@@ -81,7 +82,10 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
                     <span className={`pill field-state field-state--${next ? 'closed' : 'open'}`}>
                       {chosen && <>{t(w.closed ? 'closed' : 'open')} → </>}{t(next ? 'closed' : 'open')}</span>
                   </label>
-                  {w.alone && chosen && (
+                  {w.alone && chosen && outage && /without supply/.test(w.alone) && (
+                    <div className="field-hint is-outage">⏻ {t('Outage')}: {w.alone.replace(/ would be left without supply$/, '')}</div>
+                  )}
+                  {w.alone && chosen && !(outage && /without supply/.test(w.alone)) && (
                     <div className={`field-hint${w.pair_with?.some((p) => toggle.has(p)) ? '' : ' is-warn'}`}>
                       <span title={w.alone}>
                         {/without supply/.test(w.alone) ? t('Alone it would cut supply') : /loop/.test(w.alone) ? t('Alone it would close a loop') : t('Not alone')}
@@ -97,6 +101,14 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
               )
             })}
           </ul>
+          <label className="field-outage">
+            <input type="checkbox" checked={outage} onChange={(e) => setOutage(e.target.checked)} />
+            <span><b>⏻ {t('Allow an outage')}</b><br /><small className="muted">{t('outage.tip')}</small></span>
+          </label>
+          {!!view.outage?.length && (
+            <p className="field-dark">⏻ {t('Without supply now')}: {view.outage.map((o) => o.name).join(', ')}
+              <br /><small className="muted">{t('outage.restore')}</small></p>
+          )}
           <details>
             <summary className="group-label">{t('Switch meters off · SS failure')} ({view.meters.filter((m) => m.offline).length} {t('offline')})</summary>
             <div className="field-meters">
@@ -107,7 +119,7 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
               ))}
             </div>
           </details>
-          <small className="muted">{t('field.tip')}</small>
+          <small className="muted">{t(outage ? 'field.tip.outage' : 'field.tip')}</small>
           <button className="btn-primary" onClick={apply} disabled={busy || (!toggle.size && !off.size)}>
             {busy ? t('Applying…') : t('Apply in the field')}
           </button>

@@ -81,6 +81,30 @@ def test_switch_hints_say_what_each_switch_needs():
     assert set(s.true_edges) == edges  # checking never changes the network
 
 
+def test_deliberate_outage_is_noticed_and_left_out_of_the_score():
+    """An outage leaves substations without supply: their meters fall silent, they cannot be tested, and they
+    are not scored; closing the switch again restores them."""
+    from gridxray.agent.planner import true_parent
+    from gridxray.verify.score import score
+
+    s = generate_scenario(Complexity.MEDIUM, 0)
+    eng = ExperimentEngine(s, budget=10)
+    live0 = s.node_ids[-1]
+    assert eng.perturb_load(live0, 500).accepted
+    feeder = next(i for i, k in s.switch_kind.items() if k != "fuse" and apply_intervention(s, [i], [], dry=True)
+                  and "without supply" in apply_intervention(s, [i], [], dry=True))
+    assert "without supply" in apply_intervention(s, [feeder], [])  # refused without consent
+    assert apply_intervention(s, [feeder], [], allow_outage=True) is None
+    dark = s.deenergized
+    assert dark and all(s.read_meters()[n]["vm_pu"] is None for n in dark if n in s.metered)
+    live = next(n for n in s.node_ids if n not in dark)
+    rec = eng.perturb_load(live, 500)
+    assert rec.accepted and rec.change and set(rec.change["offline"]) & dark  # the AI sees meters fall silent
+    assert not eng.perturb_load(min(dark), 500).accepted  # no supply: nothing to test there
+    assert score(s, true_parent(s)).f1 == 1.0  # the dark area is not part of the network to find
+    assert apply_intervention(s, [feeder], []) is None and not s.deenergized  # restored
+
+
 def test_meter_offline_is_noticed():
     s = generate_scenario(Complexity.EASY, 1)
     eng = ExperimentEngine(s, budget=5)

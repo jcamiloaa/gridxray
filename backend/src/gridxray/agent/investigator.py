@@ -318,7 +318,9 @@ class Investigator:
                  "matches the records" if seen_state == documented else
                  f"RECORD OUTDATED: records say {documented}, the photo shows {seen_state}")
         # a fault the crew can see (a burnt meter after a field failure); only a confident reading counts
-        fault = f"FAULT SEEN: the smart meter at {node} is damaged" if reading.get("meter_fault") is True and sure else None
+        seen = ([f"the smart meter at {node} is damaged"] if reading.get("meter_fault") is True else []) + \
+               ([f"{node} has no supply (outage)"] if reading.get("no_supply") is True else [])
+        fault = f"FAULT SEEN: {'; '.join(seen)}" if seen and sure else None
         tb.engine.history.append(ExperimentRecord(len(tb.engine.history) + 1, {"type": "field_visit", "node": nid},
                                                   True, "field visit", 1))
         tb.field_findings.append({"site": node, "reading": reading, "record_check": check, "fault": fault})

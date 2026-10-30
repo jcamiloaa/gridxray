@@ -119,7 +119,8 @@ export interface Overlay {
   plan?: { child: number; parent: number; real?: number; labels?: { plan: string; real: string } }[]
   // field crew on its way to / working at a site ("dispatch crew")
   // what you changed in the field during the run, shown where it happened
-  incidents?: { id: string; node: number; kind: 'meter' | 'switch'; label: string; state?: 'open' | 'closed' }[]
+  // count: on the first substation of an outage, how many were left without supply
+  incidents?: { id: string; node: number; kind: 'meter' | 'switch' | 'outage'; label: string; state?: 'open' | 'closed'; count?: number }[]
   crew?: { visit: number; node: number; name: string; from?: number; stage: 'photo' | 'segment' | 'read' | 'done'; outdated?: boolean }
   /** Differences view after comparing: the AI's tree drawn on the streets, coloured by outcome, with node rings. */
   diff?: {

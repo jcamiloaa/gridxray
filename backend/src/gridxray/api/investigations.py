@@ -135,6 +135,7 @@ def get(run_id: str, user: CurrentUser, db: DbSession, session: Session = None) 
 class InterveneRequest(BaseModel):
     switches: list[int] = Field(default_factory=list, max_length=6)  # switches to operate (toggle)
     meters_off: list[int] = Field(default_factory=list, max_length=10)  # meters that go offline
+    allow_outage: bool = False  # a deliberate outage: substations may be left without supply
 
 
 @router.get("/{run_id}/field")
@@ -153,7 +154,7 @@ def intervene(run_id: str, body: InterveneRequest, user: CurrentUser, db: DbSess
     _owned(db, run_id, user, session)
     if not body.switches and not body.meters_off:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Choose a switch to operate or a meter to switch off")
-    problem = manager.intervene(run_id, body.switches, body.meters_off)
+    problem = manager.intervene(run_id, body.switches, body.meters_off, body.allow_outage)
     if problem:
         raise HTTPException(status.HTTP_409_CONFLICT, f"Not applied: {problem}")
     return {"applied": True}

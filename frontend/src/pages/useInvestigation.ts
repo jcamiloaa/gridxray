@@ -72,7 +72,10 @@ export function useInvestigation(scenario: ObservableScenario | null, generated:
         }),
         ...off.filter((n) => idOf.has(n)).map((n) => ({ id: `${e.t}-m${n}`, node: idOf.get(n)!, kind: 'meter' as const, label: n })),
       ]
-      setIncidents((list) => [...list, ...add])
+      const dark = ((e.outage ?? []) as string[]).filter((n) => idOf.has(n)) // left without supply
+      add.push(...dark.map((n, i) => ({ id: `${e.t}-o${n}`, node: idOf.get(n)!, kind: 'outage' as const, label: n, count: i === 0 ? dark.length : undefined })))
+      const back = new Set(((e.restored ?? []) as string[]).map((n) => idOf.get(n)))
+      setIncidents((list) => [...list.filter((x) => x.kind !== 'outage' || !back.has(x.node)), ...add])
     }
     if (e.kind === 'crew_stage') {
       setCrew((c) => (c && c.visit === Number(e.visit) ? { ...c, stage: e.stage as 'photo' | 'segment' | 'read' } : c))

@@ -136,9 +136,8 @@ class Scenario:
         mv = bus.index[bus.vn_kv == bus.vn_kv[self.roots[0]]]
         return sorted(int(b) for b in mv if b not in self.roots)
 
-    @property
-    def true_edges(self) -> set[Edge]:
-        """Energized MV connections: in-service lines whose switches are all closed."""
+    def _closed_edges(self) -> set[Edge]:
+        """In-service lines whose switches are all closed, energized or not."""
         open_lines = set(
             self.net.switch.element[(self.net.switch.et == "l") & ~self.net.switch.closed]
         )
@@ -148,6 +147,31 @@ class Scenario:
                 a, b = int(line.from_bus), int(line.to_bus)
                 edges.add((min(a, b), max(a, b)))
         return edges
+
+    def _energized(self, edges: set[Edge]) -> set[int]:
+        adj: dict[int, list[int]] = {}
+        for a, b in edges:
+            adj.setdefault(a, []).append(b)
+            adj.setdefault(b, []).append(a)
+        seen, stack = set(self.roots), list(self.roots)
+        while stack:
+            for nxt in adj.get(stack.pop(), []):
+                if nxt not in seen:
+                    seen.add(nxt)
+                    stack.append(nxt)
+        return seen
+
+    @property
+    def deenergized(self) -> set[int]:
+        """Secondary substations with no closed path to a substation: an outage in the field."""
+        return set(self.node_ids) - self._energized(self._closed_edges())
+
+    @property
+    def true_edges(self) -> set[Edge]:
+        """Energized MV connections: closed in-service lines fed from a substation (an area in outage has none)."""
+        edges = self._closed_edges()
+        live = self._energized(edges)
+        return {e for e in edges if e[0] in live}
 
     def solve(self, hour: int) -> None:
         """Scale every load to its profile at `hour` and run the power flow."""

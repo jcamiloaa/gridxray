@@ -25,7 +25,11 @@ def read_meters(
         if model.faulty_meters.get(node) == "dead" or rng.random() < model.missing_rate:
             readings[node] = {"vm_pu": None, "p_kw": None, "q_kvar": None}
             continue
-        vm = float(net.res_bus.vm_pu.at[node]) + rng.normal(0, model.voltage_noise_pu)
+        vm = float(net.res_bus.vm_pu.at[node])
+        if np.isnan(vm):  # no supply: the meter has no power either
+            readings[node] = {"vm_pu": None, "p_kw": None, "q_kvar": None}
+            continue
+        vm += rng.normal(0, model.voltage_noise_pu)
         match model.faulty_meters.get(node):
             case "stuck":
                 vm = 1.0

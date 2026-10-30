@@ -116,13 +116,43 @@ function IncidentFx({ incident, at, stack }: { incident: Incident; at: Vec2; sta
   )
 }
 
+/** A substation left without supply: a dark shadow over it that slowly breathes, one chip per outage. */
+function OutageFx({ incident, at }: { incident: Incident; at: Vec2 }) {
+  const { t } = useI18n()
+  const shade = useRef<THREE.Mesh>(null)
+  useFrame(({ clock }) => {
+    if (shade.current) (shade.current.material as THREE.MeshBasicMaterial).opacity = 0.42 + Math.sin(clock.elapsedTime * 1.6) * 0.08
+  })
+  return (
+    <group position={[at[0], 0, at[1]]}>
+      <mesh ref={shade} position={[0, 1.1, 0]}>
+        <boxGeometry args={[2.1, 2.3, 2.1]} />
+        <meshBasicMaterial color="#10161d" transparent opacity={0.45} depthWrite={false} />
+      </mesh>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.04, 0]}>
+        <ringGeometry args={[1.1, 1.3, 40]} />
+        <meshBasicMaterial color="#3a4450" transparent opacity={0.8} depthWrite={false} />
+      </mesh>
+      {incident.count !== undefined && (
+        <Html position={[0, 3.1, 0]} center zIndexRange={[6, 0]}>
+          <div className="incident-tag incident-tag--outage" style={{ translate: '0 -30px' }}>
+            <span>⏻</span>
+            <span className="incident-tag__short">{t('Outage')} · {incident.count}</span>
+            <span className="incident-tag__full">{t('Outage: {n} substations without supply').split('{n}').join(String(incident.count))}</span>
+          </div>
+        </Html>
+      )}
+    </group>
+  )
+}
+
 export function IncidentLayer({ incidents, pos }: { incidents: Incident[]; pos: Map<number, Vec2> }) {
   return (
     <group>
-      {incidents.map((inc, i) => pos.has(inc.node) && (
+      {incidents.map((inc, i) => pos.has(inc.node) && (inc.kind === 'outage' ? <OutageFx key={inc.id} incident={inc} at={pos.get(inc.node)!} /> :
         <IncidentFx key={inc.id} incident={inc} at={pos.get(inc.node)!}
-          stack={incidents.slice(0, i).filter((x) => x.node === inc.node).length} />
-      ))}
+          stack={incidents.slice(0, i).filter((x) => x.node === inc.node && x.kind !== 'outage').length} />)
+      )}
     </group>
   )
 }

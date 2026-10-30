@@ -194,6 +194,8 @@ export function Timeline({ events, running, runId = null }: { events: RunEvent[]
                 <ul>
                   {sws.map((w) => <li key={w.id}>SW-{w.id} ({t(w.kind)}, {w.between.join(' – ')}): {t('now')} <b>{t(w.closed ? 'closed' : 'open')}</b></li>)}
                   {off.length > 0 && <li>{t('Meters offline')}: {off.join(', ')}</li>}
+                  {((e.outage ?? []) as string[]).length > 0 && <li>⏻ <b>{t('Substations without supply')}</b>: {(e.outage as string[]).join(', ')}</li>}
+                  {((e.restored ?? []) as string[]).length > 0 && <li>{t('Supply restored')}: {(e.restored as string[]).join(', ')}</li>}
                 </ul>
                 <p className="muted">{t('intervention.note')}</p>
                 {e.commitment ? <code className="tl__hash">{String(e.commitment)}</code> : null}

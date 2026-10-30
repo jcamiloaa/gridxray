@@ -24,15 +24,14 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
   // the field crew, read by the render loop: truck on the streets, then the photo flash at the site
   const crew = useRef<{ c: NonNullable<Overlay['crew']>; t0: number; texts: Record<string, string> } | null>(null)
   // incidents you caused in the field, with the time each one was first seen (for the spark burst)
-  const incidents = useRef(new Map<string, { inc: NonNullable<Overlay['incidents']>[number]; t0: number; text: string }>())
+  const incidents = useRef(new Map<string, { inc: NonNullable<Overlay['incidents']>[number]; t0: number }>())
+  const live = new Set((overlay?.incidents ?? []).map((inc) => inc.id))
+  for (const id of [...incidents.current.keys()]) if (!live.has(id)) incidents.current.delete(id) // e.g. supply restored
   for (const inc of overlay?.incidents ?? []) {
-    if (!incidents.current.has(inc.id)) {
-      incidents.current.set(inc.id, { inc, t0: performance.now(), text: inc.kind === 'meter'
-        ? t('Meter {node} offline').split('{node}').join(inc.label)
-        : t('{sw} operated → {state}').split('{sw}').join(inc.label).split('{state}').join(t(inc.state ?? '')) })
-    }
+    if (!incidents.current.has(inc.id)) incidents.current.set(inc.id, { inc, t0: performance.now() })
   }
-  if (!overlay?.incidents?.length) incidents.current.clear()
+  const outageText = useRef('')
+  outageText.current = t('Outage')
   // the control center and the last experiment's signals, read by the render loop
   const planRef = useRef<Overlay['plan']>(undefined)
   planRef.current = overlay?.plan
@@ -345,6 +344,22 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
       for (const { inc, t0 } of incidents.current.values()) {
         const at = scene.pos.get(inc.node)
         if (!at) continue
+        if (inc.kind === 'outage') { // no supply: a dark shade over the substation, one chip per outage
+          const box: V3[] = [[at[0] - 1, 0.05, at[1] - 1], [at[0] + 1, 0.05, at[1] - 1], [at[0] + 1, 0.05, at[1] + 1], [at[0] - 1, 0.05, at[1] + 1]]
+          face(box.map(project), `rgba(16, 22, 29, ${0.4 + Math.sin(now / 600) * 0.08})`, '#3a4450')
+          if (inc.count !== undefined) {
+            const [ox, oy] = project([at[0], 3.6, at[1]])
+            const chip = `⏻ ${outageText.current} · ${inc.count}`
+            ctx.font = '700 10px Inter, system-ui, sans-serif'
+            ctx.textAlign = 'center'
+            const w = ctx.measureText(chip).width + 14
+            ctx.fillStyle = 'rgba(43, 51, 61, .92)'
+            ctx.beginPath(); ctx.roundRect(ox - w / 2, oy - 30, w, 16, 8); ctx.fill()
+            ctx.fillStyle = '#fff'
+            ctx.fillText(chip, ox, oy - 18.5)
+          }
+          continue
+        }
         const age = (now - t0) / 1000
         const flash = age < 3.5 ? 1 - age / 3.5 : 0
         if (flash > 0) { // arc flash and sparks

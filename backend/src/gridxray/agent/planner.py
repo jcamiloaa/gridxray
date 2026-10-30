@@ -54,7 +54,9 @@ experiments still count, how many substations are confirmed by them, how many ar
 Rules: a meter that went silent is a failure in the field: recommend a crew, and count that a crew visit uses one
 experiment of the budget. If the budget left (minus the crew, if you recommend one) cannot re-confirm the
 unconfirmed substations in the affected area (roughly one experiment per unconfirmed substation there, at least the
-suspect sites), add the difference; add none only when the budget left clearly covers it. Return ONLY JSON:
+suspect sites), add the difference; add none only when the budget left clearly covers it. Several neighbouring
+meters going silent together is an outage: that area has no supply and cannot be tested, so do not budget
+experiments for it; one crew visit confirms it. Return ONLY JSON:
 {"extra_experiments": <integer 0..10>, "send_crew": true|false, "priorities": ["<node names to re-test first, up to 6>"],
  "reasoning": "<two sentences: what changed and why this many extra experiments>"}"""
 

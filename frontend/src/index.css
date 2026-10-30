@@ -641,6 +641,10 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .field-state { font-size: .72rem; white-space: nowrap; }
 .field-hint { margin: 0 6px 4px 30px; font-size: .74rem; color: #0f6b47; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .field-hint.is-warn { color: #b03030; }
+.field-hint.is-outage { color: #2b333d; font-weight: 600; }
+.field-outage { display: grid; grid-template-columns: auto 1fr; gap: 6px; align-items: start; padding: 6px 8px; border-radius: 8px; background: #eef1f4; cursor: pointer; font-size: .82rem; }
+.field-dark { margin: 0; padding: 6px 8px; border-radius: 8px; background: #2b333d; color: #fff; font-size: .8rem; }
+.field-dark .muted { color: #c9d1da; }
 .field-pair { padding: 1px 7px; font-size: .72rem; border-radius: 999px; border: 1px solid currentColor; background: #fff; color: inherit; cursor: pointer; }
 .field-pair.is-on { background: #e6f4ee; color: #0f6b47; }
 .field-state--closed { background: #e6f4ee; color: #0f6b47; }
@@ -681,6 +685,7 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
   border-radius: 999px; font: 700 10.5px/1.2 var(--font, system-ui); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.22); opacity: .92; }
 .incident-tag--meter { background: #b03030; animation: incident-pulse 1.2s ease-in-out infinite; }
 .incident-tag--switch { background: #1f6fb2; }
+.incident-tag--outage { background: #2b333d; }
 @keyframes incident-pulse { 50% { box-shadow: 0 0 0 6px rgba(214, 69, 69, .25), 0 4px 14px rgba(0,0,0,.28); } }
 
 /* ---------- control room: the agents at work ---------- */

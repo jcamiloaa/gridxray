@@ -236,7 +236,9 @@ class ToolBox:
             "experiments_set_aside": stale,
             "suspect_sites": suspects[:4],
             "advice": "If a picture would settle what changed (a switch operated, a damaged meter), send a field crew "
-                      "to a suspect site with dispatch_crew before re-testing.",
+                      "to a suspect site with dispatch_crew before re-testing. Several neighbouring meters going "
+                      "silent together usually means an outage: that area has no supply, cannot be tested and is "
+                      "not part of the energized network until it is restored.",
         }
 
     # ------------------------------------------------------------ tools

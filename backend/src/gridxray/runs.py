@@ -175,7 +175,7 @@ class RunManager:
         run.flush()
         return True
 
-    def intervene(self, run_id: str, toggles: list[int], meters_off: list[int]) -> str | None:
+    def intervene(self, run_id: str, toggles: list[int], meters_off: list[int], allow_outage: bool = False) -> str | None:
         """Change the real network of a running investigation; the agents are not told."""
         from gridxray.sim.engine import apply_intervention
 
@@ -183,9 +183,11 @@ class RunManager:
         if not run or run.status != "running" or not run.investigator:
             return "this investigation is not running"
         s = run.investigator.run.toolbox.engine.s
-        problem = apply_intervention(s, toggles, meters_off)
+        dead0 = s.deenergized
+        problem = apply_intervention(s, toggles, meters_off, allow_outage=allow_outage)
         if problem:
             return problem
+        dead = s.deenergized
         sw = s.net.switch
 
         def between(i: int) -> list[str]:
@@ -197,6 +199,9 @@ class RunManager:
                   "switches": [{"id": i, "kind": s.switch_kind[i], "closed": bool(sw.closed.at[i]), "between": between(i)}
                                for i in toggles],
                   "meters_off": [s.names[m] for m in meters_off], "meters_off_ids": meters_off,
+                  # substations this operation left without supply, and those it brought back
+                  "outage": [s.names[n] for n in sorted(dead - dead0)], "outage_ids": sorted(dead - dead0),
+                  "restored": [s.names[n] for n in sorted(dead0 - dead)], "restored_ids": sorted(dead0 - dead),
                   # a new commitment to the changed topology, published before the AI can react
                   "commitment": commitment(run.seal_nonce, canonical(s)) if run.seal_nonce else None})
         run.flush()
@@ -221,15 +226,17 @@ class RunManager:
             state = tuple(w["closed"] for w in switches)
             if run.field_hints is None or run.field_hints[0] != state:
                 run.field_hints = (state, self._switch_hints(s, switches))
+            outage = [{"id": n, "name": s.names[n]} for n in sorted(s.deenergized)]
         hints = run.field_hints[1]
-        return {"switches": [w | hints.get(w["id"], {}) for w in switches], "meters": meters}
+        return {"switches": [w | hints.get(w["id"], {}) for w in switches], "meters": meters, "outage": outage}
 
     @staticmethod
     def _switch_hints(s, switches: list[dict]) -> dict[int, dict]:
         """For each switch: can it be operated on its own, and if not, which switch makes it possible.
 
-        GridXray never leaves customers without supply, so opening a feeding sectionalizer needs a tie
-        closed in the same operation (load transfer); closing a tie alone would make a loop.
+        A normal operation never leaves customers without supply, so opening a feeding sectionalizer needs
+        a tie closed in the same operation (load transfer), unless a deliberate outage is chosen; closing a
+        tie alone would make a loop.
         """
         from gridxray.sim.engine import apply_intervention
 

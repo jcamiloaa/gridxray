@@ -26,7 +26,7 @@ T = {
                "and the results of its own experiments.", "none": "None", "rejected": "rejected",
         "incidents": "Field incidents during the investigation", "incidents_none": "No incidents: the network did not change while the AI investigated.",
         "incidents_text": "Faults and switching operations applied to the real network while the AI was working. The AI was never told: it had to notice them in its own readings.",
-        "inc_switch": "Switching operation", "inc_meter": "Meter fault", "now": "now", "open": "open", "closed": "closed",
+        "inc_switch": "Switching operation", "inc_meter": "Meter fault", "inc_outage": "Outage", "outage": "left without supply (not scored: nothing can be measured there)", "restored": "Supply restored", "now": "now", "open": "open", "closed": "closed",
         "meter_off": "meter offline (stopped reporting)", "detected": "Detected by the AI", "not_detected": "Not detected by the AI",
         "at": "at", "exp_n": "on experiment {n} after the change", "set_aside": "earlier experiments set aside",
         "shifts": "Largest voltage shifts", "how_seen": {"baseline": "the baseline readings moved", "repeated experiment": "a repeated experiment answered differently"},
@@ -61,7 +61,7 @@ T = {
                "resultados de sus propios experimentos.", "none": "Ninguna", "rejected": "rechazado",
         "incidents": "Incidencias en campo durante la investigación", "incidents_none": "Sin incidencias: la red no cambió mientras la IA investigaba.",
         "incidents_text": "Fallas y maniobras aplicadas a la red real mientras la IA trabajaba. La IA nunca fue avisada: tuvo que notarlas en sus propias lecturas.",
-        "inc_switch": "Maniobra", "inc_meter": "Falla de medidor", "now": "ahora", "open": "abierto", "closed": "cerrado",
+        "inc_switch": "Maniobra", "inc_meter": "Falla de medidor", "inc_outage": "Apagón", "outage": "quedaron sin energía (no se califican: allí no se puede medir)", "restored": "Energía restablecida", "now": "ahora", "open": "abierto", "closed": "cerrado",
         "meter_off": "medidor fuera de servicio (dejó de reportar)", "detected": "Detectada por la IA", "not_detected": "No detectada por la IA",
         "at": "a los", "exp_n": "en el experimento {n} después del cambio", "set_aside": "experimentos anteriores descartados",
         "shifts": "Mayores cambios de tensión", "how_seen": {"baseline": "las lecturas base se movieron", "repeated experiment": "un experimento repetido respondió distinto"},
@@ -166,6 +166,10 @@ def incidents_html(events: list[dict], t: dict) -> tuple[str, int, int]:
                  f"{e(' – '.join(w.get('between', [])))}): {t['now']} <b>{t['closed'] if w.get('closed') else t['open']}</b></li>"
                  for w in iv.get("switches", [])]
         items += [f"<li><span class='tag fault'>🔥 {t['inc_meter']}</span> {e(m)}: {t['meter_off']}</li>" for m in iv.get("meters_off", [])]
+        if iv.get("outage"):
+            items.append(f"<li><span class='tag fault'>⏻ {t['inc_outage']}</span> {e(', '.join(iv['outage']))}: {t['outage']}</li>")
+        if iv.get("restored"):
+            items.append(f"<li><span class='tag'>{t['restored']}</span> {e(', '.join(iv['restored']))}</li>")
         out.append(f"<div class='incident'><p><b>{_clock(iv.get('t', 0))}</b></p><ul>{''.join(items)}</ul>")
         if seen:
             detected += 1

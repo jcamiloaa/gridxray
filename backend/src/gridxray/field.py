@@ -29,10 +29,12 @@ Report only what the photo shows. Return ONLY JSON:
 {"switch_present": true|false, "switch_state": "open"|"closed"|"unknown",
  "switch_tag": "<tag text or null>", "site_tag": "<tag text or null>",
  "mount": "pole"|"kiosk"|"unknown", "line": "overhead"|"underground"|"unknown",
- "meter_fault": true|false, "equipment": ["..."], "confidence": 0..1, "notes": "<one sentence>"}
+ "meter_fault": true|false, "no_supply": true|false, "equipment": ["..."], "confidence": 0..1, "notes": "<one sentence>"}
 Switchgear convention: the mechanical position indicator shows "I" on red when CLOSED and "O" on green when OPEN;
 an open blade also shows a visible air gap. If the indicator is not readable, say "unknown" and lower the confidence.
-meter_fault is true only if the photo clearly shows a damaged smart-meter box (scorched, smoking or with a dead display)."""
+meter_fault is true only if the photo clearly shows a damaged smart-meter box (scorched, smoking or with a dead display).
+no_supply is true only if the photo clearly shows the site de-energized: every indicator lamp dark and a voltage
+tester on the equipment reading zero."""
 
 
 @dataclass
@@ -45,9 +47,11 @@ class SiteFacts:
     switch_kind: str | None
     switch_closed: bool | None  # the REAL position (records may say otherwise)
     meter_offline: bool = False  # its meter failed in the field (a live intervention)
+    no_supply: bool = False  # left without supply by an outage in the field
 
     def public(self) -> dict:
         return {"site": self.name, "mount": self.mount, "line": self.line, "meter": "damaged" if self.meter_offline else "ok",
+                "supply": "none" if self.no_supply else "ok",
                 "switch": None if self.switch_id is None else {"tag": f"SW-{self.switch_id}", "kind": self.switch_kind,
                                                                "real_position": "closed" if self.switch_closed else "open"}}
 
@@ -67,7 +71,7 @@ def site_facts(s: Scenario, node: int, switch_id: int | None = None) -> SiteFact
     return SiteFacts(node, s.names[node], s.mount.get(node, "kiosk"), "underground" if underground else "overhead",
                      sid, s.switch_kind.get(sid) if sid is not None else None,
                      bool(sw.closed.at[sid]) if sid is not None else None,
-                     s.sensors.faulty_meters.get(node) == "dead")
+                     s.sensors.faulty_meters.get(node) == "dead", node in s.deenergized)
 
 
 def switch_sites(s: Scenario) -> dict[int, int]:
@@ -95,6 +99,9 @@ def photo_prompt(f: SiteFacts) -> str:
                   f"A metal tag on the switch reads \"SW-{f.switch_id}\".")
     fault = (" Mounted on the structure, the smart-meter box is clearly damaged: its casing scorched and blackened, "
              "a thin wisp of gray smoke rising from it, its display dark." if f.meter_offline else "")
+    if f.no_supply:
+        fault += (" The site is de-energized: the transformer is silent, every indicator lamp on the panel is dark, and "
+                  "a handheld voltage tester clipped to the equipment shows 0 on its display.")
     return (f"Realistic documentary photo taken by a utility field crew in daylight: {site}.{switch}{fault} "
             f"A small metal plate on the structure reads \"{f.name}\". Sharp focus on the equipment. "
             "No company logos, no brand names, no people's faces, no other text.")
