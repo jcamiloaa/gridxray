@@ -177,6 +177,7 @@ export interface RunSummary {
   id: string
   source: string
   seed: number
+  network?: string | null
   budget: number
   status: 'running' | 'done' | 'failed' | 'stopped'
   created_at: string
@@ -276,7 +277,11 @@ export const grids = {
 
 /* ---------- live intervention ---------- */
 
-export interface FieldSwitch { id: number; kind: SwitchKind; closed: boolean; documented_closed: boolean; between: [string, string] }
+export interface FieldSwitch {
+  id: number; kind: SwitchKind; closed: boolean; documented_closed: boolean; between: [string, string]
+  alone?: string // why it cannot be operated on its own (absent when it can)
+  pair_with?: number[] // switches that make it possible in the same operation
+}
 export interface FieldView { switches: FieldSwitch[]; meters: { id: number; name: string; offline: boolean }[] }
 
 export const field = {

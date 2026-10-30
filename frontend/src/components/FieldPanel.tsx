@@ -6,13 +6,16 @@ import { Info } from './Info'
 /** The server explains refusals in English; these are its sentences in Spanish. */
 const REFUSALS_ES: [RegExp, string][] = [
   [/^Not applied: it would close a loop.*$/, 'No se aplicó: cerraría un lazo. Abre otro interruptor del mismo lazo en la misma operación para mantener la red radial.'],
-  [/^Not applied: (.+) would be left without supply$/, 'No se aplicó: $1 quedarían sin energía.'],
+  [/^Not applied: (.+) would be left without supply$/, 'No se aplicó: $1 quedarían sin energía. GridXray no deja clientes sin servicio: cierra a la vez un enlace (T) que las re-alimente, o simula la falla de la SS apagando su medidor.'],
   [/^Not applied: voltage would leave the (.+) pu band \(min (.+)\)$/, 'No se aplicó: la tensión saldría de la banda $1 pu (mínimo $2).'],
   [/^Not applied: a line would be loaded to (.+)% of its rating$/, 'No se aplicó: una línea quedaría cargada al $1% de su capacidad.'],
   [/^Not applied: the power flow does not converge$/, 'No se aplicó: el flujo de carga no converge.'],
   [/^Not applied: fuses are not operated.*$/, 'No se aplicó: los fusibles no se maniobran.'],
 ]
 const inSpanish = (e: string) => { for (const [re, es] of REFUSALS_ES) if (re.test(e)) return e.replace(re, es); return e }
+const explained = (e: string) => /without supply$/.test(e)
+  ? `${e}. GridXray never leaves customers without supply: close a tie (T) that re-feeds them in the same operation, or simulate the substation failing by switching its meter off.`
+  : e
 
 /**
  * Live intervention: while the AI investigates, operate real switches or switch meters off, as
@@ -78,12 +81,24 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
                     <span className={`pill field-state field-state--${next ? 'closed' : 'open'}`}>
                       {chosen && <>{t(w.closed ? 'closed' : 'open')} → </>}{t(next ? 'closed' : 'open')}</span>
                   </label>
+                  {w.alone && chosen && (
+                    <div className={`field-hint${w.pair_with?.some((p) => toggle.has(p)) ? '' : ' is-warn'}`}>
+                      <span title={w.alone}>
+                        {/without supply/.test(w.alone) ? t('Alone it would cut supply') : /loop/.test(w.alone) ? t('Alone it would close a loop') : t('Not alone')}
+                      </span>
+                      {!!w.pair_with?.length && <>{' · '}{t('together with')}{' '}
+                        {w.pair_with.map((p) => (
+                          <button key={p} type="button" className={`field-pair${toggle.has(p) ? ' is-on' : ''}`}
+                            onClick={() => setToggle(new Set([...toggle, w.id, p]))}>SW-{p}</button>
+                        ))}</>}
+                    </div>
+                  )}
                 </li>
               )
             })}
           </ul>
           <details>
-            <summary className="group-label">{t('Switch meters off')} ({view.meters.filter((m) => m.offline).length} {t('offline')})</summary>
+            <summary className="group-label">{t('Switch meters off · SS failure')} ({view.meters.filter((m) => m.offline).length} {t('offline')})</summary>
             <div className="field-meters">
               {view.meters.map((m) => (
                 <label key={m.id} className={m.offline ? 'is-off' : off.has(m.id) ? 'is-chosen' : ''}>
@@ -96,7 +111,7 @@ export function FieldPanel({ runId, changes }: { runId: string; changes: number 
           <button className="btn-primary" onClick={apply} disabled={busy || (!toggle.size && !off.size)}>
             {busy ? t('Applying…') : t('Apply in the field')}
           </button>
-          {msg && <p className={msg.ok ? 'field-ok' : 'error'}>{msg.ok ? t(msg.text) : lang === 'es' ? inSpanish(msg.text) : msg.text}</p>}
+          {msg && <p className={msg.ok ? 'field-ok' : 'error'}>{msg.ok ? t(msg.text) : lang === 'es' ? inSpanish(msg.text) : explained(msg.text)}</p>}
         </>
       )}
     </div>

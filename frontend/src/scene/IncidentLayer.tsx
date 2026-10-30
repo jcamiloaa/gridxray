@@ -104,11 +104,12 @@ function IncidentFx({ incident, at, stack }: { incident: Incident; at: Vec2; sta
       )}
       <Html position={[0, 3.1, 0]} center zIndexRange={[6, 0]}>
         {/* lifted in screen pixels so it never sits on the crew's tag or another incident at the same site */}
-        <div className={`incident-tag incident-tag--${incident.kind}`} style={{ translate: `0 ${-30 - stack * 30}px` }}>
+        <div className={`incident-tag incident-tag--${incident.kind}`} style={{ translate: `0 ${-30 - stack * 26}px` }}>
           <span>{meter ? '🔥' : '⚡'}</span>
-          {meter
+          <span className="incident-tag__short">{incident.label}</span>
+          <span className="incident-tag__full">{meter
             ? t('Meter {node} offline').split('{node}').join(incident.label)
-            : t('{sw} operated → {state}').split('{sw}').join(incident.label).split('{state}').join(t(incident.state ?? ''))}
+            : t('{sw} operated → {state}').split('{sw}').join(incident.label).split('{state}').join(t(incident.state ?? ''))}</span>
         </div>
       </Html>
     </group>

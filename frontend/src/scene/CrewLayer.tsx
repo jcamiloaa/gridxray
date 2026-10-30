@@ -160,6 +160,8 @@ export function CrewLayer({ crew, pos }: { crew: Crew; pos: Map<number, Vec2> })
     : crew.stage === 'segment' ? t('Segmenting the equipment · SAM 3.1')
     : crew.stage === 'read' ? t('Reading the switch · Muse Spark')
     : crew.outdated ? t('Record outdated') : t('Field visit done')
+  const short = !arrived && !parked ? crew.name
+    : crew.stage === 'photo' ? 'Muse Image' : crew.stage === 'segment' ? 'SAM 3.1' : crew.stage === 'read' ? 'Muse Spark' : crew.name
   return (
     <group>
       <group ref={truck}><Truck beacon={beacon} /></group>
@@ -171,9 +173,12 @@ export function CrewLayer({ crew, pos }: { crew: Crew; pos: Map<number, Vec2> })
           <meshBasicMaterial color="#ffffff" transparent depthWrite={false} side={THREE.DoubleSide} />
         </mesh>
         <Html position={[0, 1.6, 0]} center zIndexRange={[5, 0]}>
-          <div ref={label} style={{ translate: '0 18px' }} className={`crew-tag crew-tag--${crew.stage}${crew.outdated ? ' is-outdated' : ''}`}>
+          {/* compact chip beside the worker, so the action stays visible; the full sentence on hover */}
+          <div ref={label} style={{ translate: '34px 22px' }} title={text}
+            className={`crew-tag crew-tag--${crew.stage}${crew.outdated ? ' is-outdated' : ''}`}>
             <span className="crew-tag__icon">{crew.stage === 'photo' ? '📷' : crew.stage === 'segment' ? '✂' : crew.stage === 'read' ? '👁' : crew.outdated ? '⚠' : '✓'}</span>
-            {text}
+            <span className="crew-tag__short">{short}</span>
+            <span className="crew-tag__full">{text}</span>
           </div>
         </Html>
       </group>

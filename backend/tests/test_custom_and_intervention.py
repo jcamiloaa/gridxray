@@ -65,6 +65,22 @@ def test_intervention_refuses_loops_and_is_noticed_by_the_agent():
     assert rec.change and rec.change["shifts_pu"] and rec.epoch == 1 and set(s.true_edges) != edges
 
 
+def test_switch_hints_say_what_each_switch_needs():
+    """The field panel tells which switches cannot be operated alone and which partner makes it possible."""
+    from gridxray.runs import RunManager
+
+    s = generate_scenario(Complexity.MEDIUM, 1)
+    edges = set(s.true_edges)
+    tie = next(i for i, k in s.switch_kind.items() if k == "tie")
+    assert apply_intervention(s, [tie], [], dry=True) and set(s.true_edges) == edges
+    switches = [{"id": i, "kind": k, "closed": bool(s.net.switch.closed.at[i])} for i, k in s.switch_kind.items()]
+    hints = RunManager._switch_hints(s, switches)
+    assert "loop" in hints[tie]["alone"] and hints[tie]["pair_with"]
+    for p in hints[tie]["pair_with"]:  # every suggested pair really is a safe operation
+        assert apply_intervention(s, [tie, p], [], dry=True) is None
+    assert set(s.true_edges) == edges  # checking never changes the network
+
+
 def test_meter_offline_is_noticed():
     s = generate_scenario(Complexity.EASY, 1)
     eng = ExperimentEngine(s, budget=5)

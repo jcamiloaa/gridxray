@@ -33,7 +33,7 @@ export function RunsDrawer({ onOpen, onClose }: { onOpen: (r: RunSummary) => voi
           {runs?.map((r) => (
             <li key={r.id} className="card">
               <div className="row" style={{ justifyContent: 'space-between' }}>
-                <b>{t(SOURCE_LABEL[r.source] ?? r.source)} · {t('Seed').toLowerCase()} {r.seed}</b>
+                <b className="runs-list__name">{r.network ?? t(SOURCE_LABEL[r.source] ?? (r.source.startsWith('custom:') ? 'Designed network' : r.source))} · {t('Seed').toLowerCase()} {r.seed}</b>
                 <span className={`pill run-pill run-pill--${r.status}`}>{t(r.status)}</span>
               </div>
               <div className="runs-list__meta">

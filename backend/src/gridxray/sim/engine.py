@@ -250,12 +250,12 @@ class ExperimentEngine:
             return readings
 
 
-def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int]) -> str | None:
+def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int], dry: bool = False) -> str | None:
     """Change the real network in the field (what the agents must notice by themselves).
 
     Switches are operated for good; meters go offline. Refused, and fully undone, when the result
     would not be a safe radial network: a loop, customers left without supply or a broken limit.
-    Returns the reason for a refusal, None when applied.
+    Returns the reason for a refusal, None when applied. `dry` only checks and always undoes.
     """
     import dataclasses
 
@@ -290,7 +290,7 @@ def apply_intervention(s: Scenario, toggles: list[int], meters_off: list[int]) -
                 loading = s.net.res_line.loading_percent.dropna()
                 if len(loading) and loading.max() > MAX_LOADING:
                     problem = f"a line would be loaded to {loading.max():.0f}% of its rating"
-        if problem:
+        if problem or dry:
             for i, closed in before.items():
                 sw.at[i, "closed"] = closed
             s.solve(s.hour)

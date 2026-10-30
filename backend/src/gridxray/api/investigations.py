@@ -14,7 +14,7 @@ from gridxray.config import settings
 from gridxray.lab import Complexity, Reference
 from gridxray.pricing import PRICES
 from gridxray.runs import manager, run_summary, session_key, usage_totals
-from gridxray.store.models import InvestigationRun
+from gridxray.store.models import CustomGrid, InvestigationRun
 
 router = APIRouter(prefix="/investigations", tags=["investigations"])
 MAX_CONCURRENT = 4  # protects the Meta Model API quota during judging
@@ -76,7 +76,11 @@ def list_runs(user: CurrentUser, db: DbSession, session: Session = None) -> list
     if user.is_demo:
         q = q.filter(InvestigationRun.session_key == _key(user, session))
     rows = q.order_by(InvestigationRun.created_at.desc()).limit(50).all()
-    return [run_summary(manager.runs.get(r.id) or r) | {"created_at": r.created_at} for r in rows]
+    # a designed network shows its own name, not its database id
+    ids = {r.source.split(":", 1)[1] for r in rows if r.source.startswith("custom:")}
+    names = {g.id: g.name for g in db.query(CustomGrid).filter(CustomGrid.id.in_(ids))} if ids else {}
+    return [run_summary(manager.runs.get(r.id) or r) | {"created_at": r.created_at,
+            "network": names.get(r.source.split(":", 1)[1]) if r.source.startswith("custom:") else None} for r in rows]
 
 
 @router.get("/active")

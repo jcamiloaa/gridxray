@@ -45,9 +45,9 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
     crew.current = {
       c, t0: crew.current?.c.visit === c.visit ? crew.current.t0 : performance.now(),
       texts: {
-        drive: t('Crew driving to {node}').split('{node}').join(c.name), photo: t('Taking the photo · Muse Image'),
-        segment: t('Segmenting the equipment · SAM 3.1'), read: t('Reading the switch · Muse Spark'),
-        done: c.outdated ? t('Record outdated') : t('Field visit done'),
+        // short chips so the action at the site stays visible
+        drive: `🚚 ${c.name}`, photo: '📷 Muse Image', segment: '✂ SAM 3.1', read: '👁 Muse Spark',
+        done: `${c.outdated ? '⚠' : '✓'} ${c.name}`,
       },
     }
   }
@@ -342,7 +342,7 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
       }
 
       const stackAt = new Map<number, number>()
-      for (const { inc, t0, text } of incidents.current.values()) {
+      for (const { inc, t0 } of incidents.current.values()) {
         const at = scene.pos.get(inc.node)
         if (!at) continue
         const age = (now - t0) / 1000
@@ -376,14 +376,15 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
         const k3 = stackAt.get(inc.node) ?? 0
         stackAt.set(inc.node, k3 + 1)
         const [lx3, ly0] = project([at[0], 3.6, at[1]])
-        const ly3 = ly0 - 26 - k3 * 28 // above the crew's tag and any other incident here
-        ctx.font = '700 12px Inter, system-ui, sans-serif'
+        const ly3 = ly0 - 22 - k3 * 20 // above the crew's tag and any other incident here
+        ctx.font = '700 10px Inter, system-ui, sans-serif'
         ctx.textAlign = 'center'
-        const w3 = ctx.measureText(text).width + 30
-        ctx.fillStyle = inc.kind === 'meter' ? '#b03030' : '#1f6fb2'
-        ctx.beginPath(); ctx.roundRect(lx3 - w3 / 2, ly3 - 11, w3, 22, 11); ctx.fill()
+        const chip = `${inc.kind === 'meter' ? '🔥' : '⚡'} ${inc.label}`
+        const w3 = ctx.measureText(chip).width + 14
+        ctx.fillStyle = inc.kind === 'meter' ? 'rgba(176, 48, 48, .92)' : 'rgba(31, 111, 178, .92)'
+        ctx.beginPath(); ctx.roundRect(lx3 - w3 / 2, ly3 - 8, w3, 16, 8); ctx.fill()
         ctx.fillStyle = '#fff'
-        ctx.fillText(`${inc.kind === 'meter' ? '🔥' : '⚡'} ${text}`, lx3, ly3 + 4)
+        ctx.fillText(chip, lx3, ly3 + 3.5)
       }
 
       const cr = crew.current
@@ -426,15 +427,18 @@ export function Basic3D({ model, selected = null, onSelect, callouts = [], activ
           label = cr.texts[cr.c.stage]
           color = { photo: '#f26b1d', segment: '#0f9fbf', read: '#7c4ddb', done: cr.c.outdated ? '#d64545' : '#17a673' }[cr.c.stage]
         }
-        const [lx2, ly2b] = done ? project([site[0], 3.6, site[1] - 0.6]) : project([tx, 1.6, tz])
-        const ly2 = ly2b + (done ? 16 : 0) // below an incident's tag at the same site
-        ctx.font = '600 12px Inter, system-ui, sans-serif'
-        ctx.textAlign = 'center'
-        const tw = ctx.measureText(label).width + 18
+        // beside the worker, not on top of the equipment
+        const [lx2b, ly2] = done ? project([site[0] + 1.4, 0.4, site[1] - 0.6]) : project([tx, 1.6, tz])
+        ctx.font = '700 10px Inter, system-ui, sans-serif'
+        ctx.textAlign = 'left'
+        const tw = ctx.measureText(label).width + 14
+        const lx2 = done ? lx2b + 6 : lx2b - tw / 2
+        ctx.globalAlpha = 0.92
         ctx.fillStyle = color
-        ctx.beginPath(); ctx.roundRect(lx2 - tw / 2, ly2 - 11, tw, 22, 11); ctx.fill()
+        ctx.beginPath(); ctx.roundRect(lx2, ly2 - 8, tw, 16, 8); ctx.fill()
+        ctx.globalAlpha = 1
         ctx.fillStyle = '#fff'
-        ctx.fillText(label, lx2, ly2 + 4)
+        ctx.fillText(label, lx2 + 7, ly2 + 3.5)
       }
 
       // Callout leaders on the canvas, badges as DOM so hover works like the WebGL view.

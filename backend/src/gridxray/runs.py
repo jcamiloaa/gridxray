@@ -46,6 +46,7 @@ class LiveRun:
     seal_nonce: str | None = field(default=None, repr=False)
     plan_kind: str = "none"  # the utility's initial plan for this run
     plan_date: str | None = None
+    field_hints: tuple | None = field(default=None, repr=False)  # switch state -> per-switch operating hints
     investigator: Investigator | None = field(default=None, repr=False)
     lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     closed: bool = False  # stopped by the user: the log is final, late work from the thread is dropped
@@ -217,7 +218,31 @@ class RunManager:
                                  "documented_closed": s.documented_switch_closed[i],
                                  "between": [s.names.get(a, str(a)), s.names.get(b, str(b))]})
             meters = [{"id": n, "name": s.names[n], "offline": s.sensors.faulty_meters.get(n) == "dead"} for n in s.metered]
-        return {"switches": switches, "meters": meters}
+            state = tuple(w["closed"] for w in switches)
+            if run.field_hints is None or run.field_hints[0] != state:
+                run.field_hints = (state, self._switch_hints(s, switches))
+        hints = run.field_hints[1]
+        return {"switches": [w | hints.get(w["id"], {}) for w in switches], "meters": meters}
+
+    @staticmethod
+    def _switch_hints(s, switches: list[dict]) -> dict[int, dict]:
+        """For each switch: can it be operated on its own, and if not, which switch makes it possible.
+
+        GridXray never leaves customers without supply, so opening a feeding sectionalizer needs a tie
+        closed in the same operation (load transfer); closing a tie alone would make a loop.
+        """
+        from gridxray.sim.engine import apply_intervention
+
+        out: dict[int, dict] = {}
+        operable = [w for w in switches if w["kind"] != "fuse"]
+        for w in operable:
+            problem = apply_intervention(s, [w["id"]], [], dry=True)
+            if problem is None:
+                continue
+            partners = [o["id"] for o in operable if o["id"] != w["id"] and o["closed"] != w["closed"]
+                        and apply_intervention(s, [w["id"], o["id"]], [], dry=True) is None]
+            out[w["id"]] = {"alone": problem, "pair_with": partners[:4]}
+        return out
 
     def resume_interrupted(self) -> int:
         """Called at startup: resume every run the previous process left running."""
