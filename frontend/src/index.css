@@ -542,6 +542,8 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
 .crew__state--closed { background: #def3ea; color: #0f7a53; }
 .crew__prompt { white-space: pre-wrap; font-size: .72rem; background: #fff; padding: 8px; border-radius: 6px; }
 .crew__zoom { width: min(1100px, 94vw); max-height: 92vh; overflow: auto; background: var(--surface, #fff); border-radius: 12px; padding: 10px; display: grid; gap: 8px; }
+.slot--added { outline: 1.5px dashed #8b5cf6; outline-offset: 1px; }
+.run-viz__added { color: #7c4ddb; font-weight: 700; }
 .slot--crew { background: #fdf0dc !important; }
 
 /* field crew tag floating over the lineworker in the 3D scene */

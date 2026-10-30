@@ -5,7 +5,10 @@ import { useI18n } from '../i18n'
 /** Visual progress of a live investigation: budget slots, reconstruction curve, confidence and cost. */
 export function RunProgress({ events, total }: { events: RunEvent[]; total: number }) {
   const { t } = useI18n()
-  const budget = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
+  const initial = (events.find((e) => e.kind === 'started')?.budget as number | undefined) ?? 0
+  // the planning agent may add experiments after a field failure: the latest figure counts
+  const budget = ([...events].reverse().find((e) => e.kind === 'replan' || e.kind === 'started')?.budget as number | undefined) ?? 0
+  const added = Math.max(0, budget - initial)
   const experiments = events.filter((e) => e.kind === 'experiment')
   // field-crew visits spend budget too: they show as a camera slot
   const accepted = events.filter((e) => (e.kind === 'experiment' && e.accepted) || e.kind === 'field_reading')
@@ -36,14 +39,15 @@ export function RunProgress({ events, total }: { events: RunEvent[]; total: numb
     <div className="run-viz">
       <div className="run-viz__row">
         <span className="run-viz__label">{t('Experiment budget used')}</span>
-        <span className="run-viz__num">{accepted.length}/{budget || '—'}</span>
+        <span className="run-viz__num">{accepted.length}/{budget || '—'}
+          {added > 0 && <small className="run-viz__added" title={t('Experiments added by the planning agent after a field failure')}> (+{added} {t('planner')})</small>}</span>
       </div>
       <div className="budget-slots" aria-label={`${accepted.length} of ${budget} experiments`}>
         {Array.from({ length: Math.max(budget, accepted.length) }, (_, i) => {
           const e = accepted[i]
           const args = e?.args as { node?: string; switch_id?: number } | undefined
           if (e?.kind === 'field_reading') return <span key={i} className="slot slot--done slot--crew" title={`${t('Field crew')} · ${String(e.node)}`}>📷</span>
-          return <span key={i} className={`slot${e ? ' slot--done' : ''}`} title={e ? (args?.node ?? `switch ${args?.switch_id}`) : ''}>
+          return <span key={i} className={`slot${e ? ' slot--done' : ''}${i >= initial && added ? ' slot--added' : ''}`} title={e ? (args?.node ?? `switch ${args?.switch_id}`) : ''}>
             {e ? (args?.node?.replace('SS-', '') ?? 'SW') : ''}</span>
         })}
         {experiments.filter((e) => !e.accepted).map((_, i) => <span key={`r${i}`} className="slot slot--rejected">×</span>)}

@@ -70,6 +70,7 @@ const ES: Record<string, string> = {
   'Muse Spark is thinking…': 'Muse Spark está pensando…',
   // progress
   'Progress': 'Avance', 'Reconstruction': 'Reconstrucción', confirmed: 'confirmadas', 'Latest confidence': 'Última confianza',
+  'Experiments added by the planning agent after a field failure': 'Experimentos que agregó el agente planificador tras una falla en campo', 'planner': 'planificador',
   'Tokens': 'Tokens', 'Cost': 'Costo', 'Experiment budget used': 'Presupuesto de experimentos usado',
   // runs drawer
   'Your investigations': 'Tus investigaciones', 'runs.empty': 'Todavía no hay investigaciones en esta sesión.',
