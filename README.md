@@ -141,6 +141,11 @@ secondary substations without a meter, which only inference can place; GridXray 
 claiming them. Field crews read the switch position correctly in 8 of 8 test visits, including 3 outdated records.
 Raw results: `backend/results/ablation_*.json`; every run is listed on the *Evidence* page.
 
+**Report of the run shown in the demo video:** [`docs/gridxray-investigation-report.pdf`](docs/gridxray-investigation-report.pdf).
+Easy network (15 secondary substations), initial plan with errors given blind, two meter faults injected mid-run:
+**14/15 connections recovered (F1 93%)**, both field incidents detected by the AI and re-planned around, two crew
+visits (one photographed a burnt meter), sealed topology verified, **$0.66** in Meta model calls.
+
 ## Features
 
 - **Workspace**: build a network (synthetic easy / medium / hard, the CIGRE MV benchmark, or your own), watch the
