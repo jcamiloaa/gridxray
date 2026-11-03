@@ -8,6 +8,8 @@ by a checker with no AI in it.
 
 **Meta Global AI Developer Hackathon 2026** · Track: Startup · Theme: Push the Frontier · by [Zynplex](https://zynplex.com)
 
+![GridXray landing page: See inside the grid you can't see](images/landing.png)
+
 ## The problem
 
 Distribution utilities do not know exactly how their medium-voltage networks are connected today. GIS records drift
@@ -25,6 +27,8 @@ connection studies), GIS teams (finding outdated records), and field operations 
 what the meters cannot).
 
 ## What it does
+
+![The investigation running: the AI's reconstruction over the 3D city, the control room and the investigation log](images/experiments-reconstruction.png)
 
 1. **Observe.** The agent receives only what a utility knows: each secondary substation's city block, its smart-meter
    reading (noisy, sometimes missing, sometimes faulty), equipment, and the *documented* switch positions. Never the wiring.
@@ -44,6 +48,13 @@ what the meters cannot).
 6. **Conclude.** The result is a radial tree with each connection marked *measured*, *inferred* or *uncertain*, scored by
    an independent checker against the network sealed before the run.
 
+| | |
+|---|---|
+| ![The true network in the 3D view, which the AI never sees](images/true-network-3d.png) | ![Topology sealed with SHA-256 before the AI starts; the Planning agent reviews the initial plan](images/sealed-topology-planner.png) |
+| **The true network** (3D view). Lines, cables, kiosks and meter readings as they really are; the AI never sees this view. | **Sealed before the AI starts.** The SHA-256 commitment is published first; the Planning agent reviews the initial plan. |
+| ![Muse Spark's first hypothesis with its confidence](images/hypothesis.png) | ![Unsafe experiments refused by the simulator with the limit they would break](images/experiments-refused.png) |
+| **Hypothesis.** Muse Spark states its main hypothesis, key uncertainties and which nodes to probe first. | **Safety first.** Experiments that would overload a line are refused, cost no budget and reveal nothing about the wiring. |
+
 ## How Meta models are used
 
 | Model | Role | How |
@@ -56,6 +67,8 @@ what the meters cannot).
 | **Muse Spark (vision)** | Photo reading | Reads the switch position from the photo and SAM's objects; the investigator receives only this reading, never the simulator's state |
 
 Every call, token and cost is logged in the investigation's record and shown live (*Usage & settings*).
+
+![Usage & settings: calls, tokens and cost per Meta model](images/usage-and-cost.png)
 
 ## Why the result can be trusted
 
