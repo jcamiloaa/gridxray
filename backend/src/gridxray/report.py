@@ -124,7 +124,7 @@ th{background:#f0f3f6;font-size:11px;text-transform:uppercase;letter-spacing:.04
 .kv{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.kv div{background:#f0f3f6;border-radius:8px;padding:8px 10px}
 .incident{border-left:4px solid #e9a23b;background:#fffaf2;border-radius:0 8px 8px 0;padding:8px 12px;margin:10px 0}
 .incident ul{margin:4px 0 6px;padding-left:18px}.tag{display:inline-block;font-size:12px;font-weight:700;color:#fff;border-radius:999px;padding:1px 8px;margin-right:4px}
-.tag.sw{background:#1f6fb2}.tag.fault{background:#b03030}.small{font-size:12px;color:#5d6b7a}.photo{width:100%;max-width:560px;border-radius:8px;display:block;margin:6px 0}.crew{margin:10px 0}
+.tag.sw{background:#1f6fb2}.tag.fault{background:#b03030}.small{font-size:12px;color:#5d6b7a}.photo{width:100%;max-width:560px;border-radius:8px;display:block;margin:6px 0}.crew{margin:10px 0 22px}.crew p{line-height:1.5;margin:6px 0}
 .kv b{display:block;font-size:18px}.kv span{font-size:11px;color:#5d6b7a}
 .us td{font-weight:800;color:#0e6e8c}.ok{color:#0f7a53;font-weight:700}.bad{color:#c62828;font-weight:700}
 .note{background:#f0f3f6;border-radius:8px;padding:10px 12px;font-size:13px}.big{font-size:40px;font-weight:800;color:#0e6e8c}
@@ -324,8 +324,8 @@ def render(row, lang: str | None = None) -> str:
             img = f"<img class='photo' src='media/{e(str(ph['media_id']))}' alt=''>" if ph.get("media_id") else ""
             fault = f"<br><b class='bad'>🔥 {e(str(r['fault']))}</b>" if r.get("fault") else ""
             out.append(f"<div class='crew'>{img}<p><b>{e(str(r.get('node')))}</b> · {e(str(rd.get('switch_tag') or ''))} "
-                       f"{e(str(rd.get('switch_state') or ''))} · {e(str(r.get('record_check') or ''))}{fault}<br>"
-                       f"<span class='note'>{e(str(rd.get('notes') or ''))}</span></p></div>")
+                       f"{e(str(rd.get('switch_state') or ''))} · {e(str(r.get('record_check') or ''))}{fault}</p>"
+                       f"<p class='note'>{e(str(rd.get('notes') or ''))}</p></div>")
     out.append(f"<h2>{t['how']}</h2><p class='note'>{t['how_text']}</p>"
                + ("" if row.source.startswith("custom:") else
                   f"<h2>{t['repro']}</h2><p><code>uv run gridxray investigate --level {e(row.source)} --seed {row.seed} --budget {row.budget}</code></p>") +
